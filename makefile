@@ -1,0 +1,1 @@
+# Criar o cliente e o servidor e copia-los pra pasta root desse make com os nomes cliente e servidor, respectivamente

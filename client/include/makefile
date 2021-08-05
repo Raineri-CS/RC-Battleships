@@ -1,5 +1,5 @@
 all:
-	gcc $(wildcard $*.c)-c -Wall -Wextra -pedantic -Werror;\
+	gcc *.c *.h -c -Wall -Wextra -pedantic ;\
 
 clean:
 	rm *.o

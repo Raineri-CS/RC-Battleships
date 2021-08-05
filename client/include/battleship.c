@@ -78,7 +78,7 @@ int gameLoop(char *domain, unsigned short int port) {
 }
 
 void init(tabuleiro *tab) {
-  for (int i = 0; i < FIELD_SIZE; i++)
+  for (unsigned int i = 0; i < FIELD_SIZE; i++)
     for (int j = 0; j < FIELD_SIZE; j++) {
       tab->field[i][j].isOccupied = 0;
       tab->field[i][j].type = WAT;
@@ -104,7 +104,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i < y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = SUB;
       }
@@ -117,7 +117,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i < x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = SUB;
       }
@@ -131,7 +131,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i < y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = TOR;
       }
@@ -142,7 +142,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i < x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = TOR;
       }
@@ -156,7 +156,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i < y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = TAS;
       }
@@ -167,7 +167,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i < x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = TAS;
       }
@@ -181,7 +181,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i < y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = AIP;
       }
@@ -192,7 +192,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i < x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = AIP;
       }
@@ -204,7 +204,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
   return 0;
 }
 
-int verifyFileIntegrity(int *fd, tabuleiro *tab) {
+int verifyFileIntegrity(FILE *fd, tabuleiro *tab) {
   int tempX1, tempY1, tempX2, tempY2;
   char pieceBuffer[32];
 
@@ -218,13 +218,13 @@ int verifyFileIntegrity(int *fd, tabuleiro *tab) {
     /* Tem que ser nested ifs porque o switch-case nao gosta de multiplos
      * caracteres */
     if (strncmp(pieceBuffer, "SUB", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, SUB, &tab);
+      return addToField(tempX1, tempY1, tempX2, tempY2, SUB, tab);
     } else if (strncmp(pieceBuffer, "TOR", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, TOR, &tab);
+      return addToField(tempX1, tempY1, tempX2, tempY2, TOR, tab);
     } else if (strncmp(pieceBuffer, "TAS", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, TAS, &tab);
+      return addToField(tempX1, tempY1, tempX2, tempY2, TAS, tab);
     } else if (strncmp(pieceBuffer, "AIP", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, AIP, &tab);
+      return addToField(tempX1, tempY1, tempX2, tempY2, AIP, tab);
     }
   }
 

@@ -9,23 +9,25 @@
 
 // Constantes gerais
 #define FIELD_SIZE 15
-#define SUB 0 // SUBmarino
-#define TOR 1 // TORpedeiro
-#define TAS 2 // TAnk Ship
-#define AIP 3 // AIr Port
+#define SUB 0  // SUBmarino
+#define TOR 1  // TORpedeiro
+#define TAS 2  // TAnk Ship
+#define AIP 3  // AIr Port
 #define WAT 10 // WATer
 // Game modes
 #define COM 0
 #define PLAYER 1
 
-typedef struct pieceProto {
+typedef struct pieceProto
+{
   unsigned char isOccupied;
   unsigned char type;
 } piece;
 
-typedef struct tabuleiroProto {
+typedef struct tabuleiroProto
+{
   piece field[15]
-             [15]; 
+             [15];
 } tabuleiro;
 
 void init(tabuleiro *tab);
@@ -38,9 +40,9 @@ ID|Quantidade|Representacao|Nome formal     |Espaco ocupado
 */
 // Adiciona ao campo, sempre inicial, final, tipo
 int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
-                unsigned int y2, unsigned char type, tabuleiro *tab);
+               unsigned int y2, unsigned char type, tabuleiro *tab);
 int gameLoop(char *domain, unsigned short int port);
-int verifyFileIntegrity(int *fd, tabuleiro *tab);
+int verifyFileIntegrity(FILE *fd, tabuleiro *tab);
 void printField();
 /*
   Simbolos utilizados (Extended ASCII)

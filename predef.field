@@ -1,13 +1,2 @@
-# Sao considerados como comentario quando no inicio da linha
-# Para construir uma peca no tabuleiro, chame por seus aliases no codigo, com coordenadas x,y
-# Com os parametros x1,y1,x2,y2
-# Logo PECA(x1,y1,x2,y2)
-# O tabuleiro eh 15x15 sendo 0-14 valores validos de insercao
-# Estruturas invalidas falharao no init, nao lhe permitindo jogar
-# As proximas linhas sao exemnplos
-# Valido
-SUB(0,2,1,2) 
-# Nao valido pois ambos os eixos variam
-TOR(0,5,1,8)
-TAS()
-AIP()
+SUB 0 2 1 2
+TOR 0 5 1 8

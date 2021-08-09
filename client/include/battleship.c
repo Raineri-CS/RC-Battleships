@@ -1,5 +1,15 @@
 #include "battleship.h"
 
+void clear() {
+#ifdef __linux__
+  system("clear");
+#elif _WIN32
+  system("cls");
+#else
+#error "Sistema operacional nao suportado!"
+#endif
+}
+
 int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
   int clientSockfd, didRead;
   struct sockaddr_in serverAddr;
@@ -114,6 +124,8 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   x1, i);
           return -1;
         }
+      }
+      for (unsigned int i = y1; i <= y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = SUB;
       }
@@ -126,12 +138,16 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
+      // Antes de inserir, se verifica todas as casas a serem ocupadas para ver
+      // se ha algo nelas
       for (unsigned int i = x1; i <= x2; i++) {
         if (tab->field[i][y1].isOccupied) {
           fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!", i,
                   y1);
           return -1;
         }
+      }
+      for (unsigned int i = x1; i <= x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = SUB;
       }
@@ -151,9 +167,12 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   x1, i);
           return -1;
         }
+      }
+      for (unsigned int i = y1; i <= y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = TOR;
       }
+
     } else if (y1 == y2) {
       if (abs((int)(x2 - x1)) + 1 != 3) {
         fprintf(
@@ -167,6 +186,8 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   y1);
           return -1;
         }
+      }
+      for (unsigned int i = x1; i <= x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = TOR;
       }
@@ -186,9 +207,12 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   x1, i);
           return -1;
         }
+      }
+      for (unsigned int i = y1; i <= y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = TAS;
       }
+
     } else if (y1 == y2) {
       if (abs((int)(x2 - x1)) + 1 != 4) {
         fprintf(
@@ -202,6 +226,8 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   y1);
           return -1;
         }
+      }
+      for (unsigned int i = x1; i <= x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = TAS;
       }
@@ -221,9 +247,12 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   x1, i);
           return -1;
         }
+      }
+      for (unsigned int i = y1; i <= y2; i++) {
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = AIP;
       }
+
     } else if (y1 == y2) {
       if (abs((int)(x2 - x1)) + 1 != 5) {
         fprintf(
@@ -237,6 +266,8 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                   y1);
           return -1;
         }
+      }
+      for (unsigned int i = x1; i <= x2; i++) {
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = AIP;
       }
@@ -333,16 +364,202 @@ void printField(tabuleiro *tab) {
       case AIP:
         printf("P │");
         break;
+      case HIT:
+        printf("X │");
+        break;
       default:
         printf("  │");
         break;
       }
     }
-    if(i+1 == 15){
+    if (i + 1 == 15) {
       printf("\n");
       break;
     }
     printf("\n\t├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤\n");
   }
   printf("\t└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘\n\n");
+}
+
+void randomizePieces(tabuleiro *tab) {
+  unsigned int tempX1, tempY1, tempX2, tempY2, subQty, torQty, tasQty, aipQty,
+      pieceDir, swapAux;
+
+  // Seed do numero aleatorio
+  srand((time_t)NULL);
+
+  tempX1 = 0;
+  tempY1 = 0;
+  tempX2 = 0;
+  tempY2 = 0;
+  swapAux = 0;
+
+  subQty = 0;
+  torQty = 0;
+  tasQty = 0;
+  aipQty = 0;
+
+  // Um loop por tipo de peca
+
+  while (subQty != 5) {
+    // Como separei os loops, consigo saber qual o tamanho esperado de cada um
+    // Posicoes iniciais
+    tempX1 = rand() % 15;
+    tempY1 = rand() % 15;
+    tempX2 = 0;
+    tempY2 = 0;
+
+    pieceDir = rand() % 4;
+    switch (pieceDir) {
+    case UP:
+      tempX2 = tempX1;
+      // O final SEMPRE tem que ser maior que o inicial
+      swapAux = tempY1;
+      tempY2 = tempY1;
+      tempY1 = swapAux - 1;
+      break;
+    case DOWN:
+      tempX2 = tempX1;
+      tempY2 = tempY1 + 1;
+      break;
+    case LEFT:
+      swapAux = tempX1;
+      tempX2 = tempX1;
+      tempX1 = swapAux - 1;
+      tempY2 = tempY1;
+      break;
+    case RIGHT:
+      tempX2 = tempX1 + 1;
+      tempY2 = tempY1;
+      break;
+    default:
+      break;
+    }
+
+    if (addToField(tempX1, tempY1, tempX2, tempY2, SUB, tab) != -1) {
+      subQty++;
+    }
+
+    clear();
+  }
+
+  while (torQty != 3) {
+    // Posicoes iniciais
+    tempX1 = rand() % 15;
+    tempY1 = rand() % 15;
+    tempX2 = 0;
+    tempY2 = 0;
+
+    pieceDir = rand() % 4;
+    switch (pieceDir) {
+    case UP:
+      tempX2 = tempX1;
+      swapAux = tempY1;
+      tempY2 = tempY1;
+      tempY1 = swapAux - 2;
+
+      break;
+    case DOWN:
+      tempX2 = tempX1;
+      tempY2 = tempY1 + 2;
+      break;
+    case LEFT:
+      swapAux = tempX1;
+      tempX2 = tempX1;
+      tempX1 = swapAux - 2;
+      tempY2 = tempY1;
+      break;
+    case RIGHT:
+      tempX2 = tempX1 + 2;
+      tempY2 = tempY1;
+      break;
+    default:
+      break;
+    }
+
+    if (addToField(tempX1, tempY1, tempX2, tempY2, TOR, tab) != -1) {
+      torQty++;
+    }
+    clear();
+  }
+
+  while (tasQty != 2) {
+    // Posicoes iniciais
+    tempX1 = rand() % 15;
+    tempY1 = rand() % 15;
+    tempX2 = 0;
+    tempY2 = 0;
+
+    pieceDir = rand() % 4;
+    switch (pieceDir) {
+    case UP:
+      tempX2 = tempX1;
+      swapAux = tempY1;
+      tempY2 = tempY1;
+      tempY1 = swapAux - 3;
+
+      break;
+    case DOWN:
+      tempX2 = tempX1;
+      tempY2 = tempY1 + 3;
+      break;
+    case LEFT:
+      swapAux = tempX1;
+      tempX2 = tempX1;
+      tempX1 = swapAux - 3;
+      tempY2 = tempY1;
+      break;
+    case RIGHT:
+      tempX2 = tempX1 + 3;
+      tempY2 = tempY1;
+      break;
+    default:
+      break;
+    }
+
+    if (addToField(tempX1, tempY1, tempX2, tempY2, TAS, tab) != -1) {
+      tasQty++;
+    }
+    clear();
+  }
+
+  while (aipQty != 1) {
+    // Posicoes iniciais
+    tempX1 = rand() % 15;
+    tempY1 = rand() % 15;
+    tempX2 = 0;
+    tempY2 = 0;
+
+    pieceDir = rand() % 4;
+    switch (pieceDir) {
+    case UP:
+      tempX2 = tempX1;
+      swapAux = tempY1;
+      tempY2 = tempY1;
+      tempY1 = swapAux - 4;
+
+      break;
+    case DOWN:
+      tempX2 = tempX1;
+      tempY2 = tempY1 + 4;
+      break;
+    case LEFT:
+      swapAux = tempX1;
+      tempX2 = tempX1;
+      tempX1 = swapAux - 4;
+      tempY2 = tempY1;
+      break;
+    case RIGHT:
+      tempX2 = tempX1 + 4;
+      tempY2 = tempY1;
+      break;
+    default:
+      break;
+    }
+
+    if (addToField(tempX1, tempY1, tempX2, tempY2, AIP, tab) != -1) {
+      aipQty++;
+    }
+    clear();
+  }
 }

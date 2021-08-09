@@ -12,9 +12,16 @@ int main(int argc, char const *argv[]) {
   } else {
     fd = fopen("predef.field", "r");
   }
+
   init(&localField);
 
-  if (!verifyFileIntegrity(fd, &localField)) {
+  // Se o arquivo nao existir...
+  if (fd == 0) {
+    // Insere no brute-force as pecas
+    randomizePieces(&localField);
+  }
+
+  if (fd == 0 || !verifyFileIntegrity(fd, &localField)) {
     // TODO o jogo acontece aqui
     printField(&localField);
   } else {

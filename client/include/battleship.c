@@ -11,15 +11,20 @@ void clear() {
 }
 
 int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
-  int clientSockfd, didRead;
+  int clientSockfd, didRead, subQty, torQty, tasQty, aipQty;
   struct sockaddr_in serverAddr;
-  char recvBuffer[1024], sendBuffer[8];
+  struct hostent *host;
+  char recvBuffer[8], sendBuffer[4];
 
   /* Inicializacoes */
   clientSockfd = 0;
-  didRead = 0;
   recvBuffer[0] = '\0';
   sendBuffer[0] = '\0';
+  subQty = 0;
+  torQty = 0;
+  tasQty = 0;
+  aipQty = 0;
+  host = gethostbyname(domain);
 
   /* Protocolo TCP */
   serverAddr.sin_family = AF_INET;
@@ -30,6 +35,8 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
     fprintf(stderr, "\n Errro ao criar a socket! \n");
     return -1;
   }
+  
+  memcpy(&serverAddr.sin_addr, host->h_addr_list[0], host->h_length);
 
   if (inet_pton(AF_INET, domain, &serverAddr.sin_addr) <= 0) {
     fprintf(stderr, "\n Endereco invalido ou nao suportado pelo AF_INET \n");

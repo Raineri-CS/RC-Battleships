@@ -7,10 +7,15 @@ int main(int argc, char const *argv[]) {
   FILE *fd;
 
   argv[0] = "Battleships";
-  if (argc > 1) {
-    fd = fopen(argv[1], "r+");
-  } else {
+  if (argc == 3) {
     fd = fopen("predef.field", "r");
+
+  } else if (argc == 4) {
+    fd = fopen(argv[1], "r");
+  } else {
+    fprintf(stderr, "Erro na quantidade de parametros, devem seguir ./client "
+                    "DOMINIO PORTA ARQUIVO[opcional]\n");
+    return -1;
   }
 
   init(&localField);

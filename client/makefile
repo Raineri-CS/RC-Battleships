@@ -6,11 +6,14 @@ O_FILES = $(C_FILES:include/%.c=build/%.o)
 
 all: client
 
-client: $(O_FILES)
-	gcc main.c -o $@ $^
+client: build/main.o $(O_FILES) 
+	gcc -o $@ $^
 
 build:
 	@mkdir -p build
+
+build/main.o: build
+	gcc -c main.c -o build/main.o
 
 build/%.o: include/%.c | build
 	gcc -c $< -o $@

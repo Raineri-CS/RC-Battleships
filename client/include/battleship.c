@@ -1,6 +1,6 @@
 #include "battleship.h"
 
-int gameLoop(char *domain, unsigned short int port) {
+int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
   int clientSockfd, didRead;
   struct sockaddr_in serverAddr;
   char recvBuffer[1024], sendBuffer[8];
@@ -98,26 +98,40 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
     // Verifica qual dos eixos se diferenciou
     if (x1 == x2) {
       // Verifica se eh do tamanho correto
-      if ((unsigned int)((y2 - y1) + 1) != 2) {
+      // abs te retorna o valor sem o bit de sinal da subtracao
+      // esta sendo castado pra int dentro da funcao pra sumir com um warning de
+      // que os parametros sao unsigned int, logo nao tem efeito a chamada
+      if (abs((int)(y2 - y1)) + 1 != 2) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i <= y2; i++) {
+        // Verifica se o espaco ja esta ocupado antes de tentar inserir
+        if (tab->field[x1][i].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!",
+                  x1, i);
+          return -1;
+        }
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = SUB;
       }
     } else if (y1 == y2) {
       // Tem o caso de estar erradas as coordenadas, nao se pode ter pecas na
       // diagonal
-      if (((unsigned int)(x2 - x1) + 1) != 2) {
+      if (abs((int)(x2 - x1)) + 1 != 2) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i <= x2; i++) {
+        if (tab->field[i][y1].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!", i,
+                  y1);
+          return -1;
+        }
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = SUB;
       }
@@ -125,24 +139,34 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
     break;
   case TOR:
     if (x1 == x2) {
-      if ((unsigned int)((y2 - y1) + 1) != 3) {
+      if (abs((int)(y2 - y1)) + 1 != 3) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i <= y2; i++) {
+        if (tab->field[x1][i].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!",
+                  x1, i);
+          return -1;
+        }
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = TOR;
       }
     } else if (y1 == y2) {
-      if (((unsigned int)(x2 - x1) + 1) != 3) {
+      if (abs((int)(x2 - x1)) + 1 != 3) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i <= x2; i++) {
+        if (tab->field[i][y1].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!", i,
+                  y1);
+          return -1;
+        }
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = TOR;
       }
@@ -150,24 +174,34 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
     break;
   case TAS:
     if (x1 == x2) {
-      if ((unsigned int)((y2 - y1) + 1) != 4) {
+      if (abs((int)(y2 - y1)) + 1 != 4) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i <= y2; i++) {
+        if (tab->field[x1][i].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!",
+                  x1, i);
+          return -1;
+        }
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = TAS;
       }
     } else if (y1 == y2) {
-      if (((unsigned int)(x2 - x1) + 1) != 4) {
+      if (abs((int)(x2 - x1)) + 1 != 4) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i <= x2; i++) {
+        if (tab->field[i][y1].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!", i,
+                  y1);
+          return -1;
+        }
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = TAS;
       }
@@ -175,24 +209,34 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
     break;
   case AIP:
     if (x1 == x2) {
-      if ((unsigned int)((y2 - y1) + 1) != 5) {
+      if (abs((int)(y2 - y1)) + 1 != 5) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = y1; i < y2; i++) {
+      for (unsigned int i = y1; i <= y2; i++) {
+        if (tab->field[x1][i].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!",
+                  x1, i);
+          return -1;
+        }
         tab->field[x1][i].isOccupied = 1;
         tab->field[x1][i].type = AIP;
       }
     } else if (y1 == y2) {
-      if (((unsigned int)(x2 - x1) + 1) != 5) {
+      if (abs((int)(x2 - x1)) + 1 != 5) {
         fprintf(
             stderr,
             "Erro ao inserir a peca, o tamanho nao condiz com a categoria\n");
         return -1;
       }
-      for (unsigned int i = x1; i < x2; i++) {
+      for (unsigned int i = x1; i <= x2; i++) {
+        if (tab->field[i][y1].isOccupied) {
+          fprintf(stderr, "Erro ao inserir peca, espaco (%d,%d) ja ocupado!", i,
+                  y1);
+          return -1;
+        }
         tab->field[i][y1].isOccupied = 1;
         tab->field[i][y1].type = AIP;
       }
@@ -205,30 +249,100 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
 }
 
 int verifyFileIntegrity(FILE *fd, tabuleiro *tab) {
-  int tempX1, tempY1, tempX2, tempY2;
+  int tempX1, tempY1, tempX2, tempY2, subQty, torQty, tasQty, aipQty;
   char pieceBuffer[32];
 
+  // Temporary coordinates
   tempX1 = 0;
   tempY1 = 0;
   tempX2 = 0;
   tempY2 = 0;
 
+  // Used to check if the correct number of units is inputtted by the end of the
+  // file
+  subQty = 0;
+  torQty = 0;
+  tasQty = 0;
+  aipQty = 0;
+
   while (fscanf(fd, "%s %d %d %d %d", pieceBuffer, &tempX1, &tempY1, &tempX2,
                 &tempY2) != EOF) {
     /* Tem que ser nested ifs porque o switch-case nao gosta de multiplos
      * caracteres */
-    if (strncmp(pieceBuffer, "SUB", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, SUB, tab);
-    } else if (strncmp(pieceBuffer, "TOR", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, TOR, tab);
-    } else if (strncmp(pieceBuffer, "TAS", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, TAS, tab);
-    } else if (strncmp(pieceBuffer, "AIP", 3)) {
-      return addToField(tempX1, tempY1, tempX2, tempY2, AIP, tab);
+    if (strncmp(pieceBuffer, "SUB", 3) == 0) {
+      if (addToField(tempX1, tempY1, tempX2, tempY2, SUB, tab) == -1)
+        return -1;
+      subQty++;
+      if (subQty > 5) {
+        fprintf(stderr, "A quantidade de SUBMARINOS excedeu 5!\n");
+        return -1;
+      }
+    } else if (strncmp(pieceBuffer, "TOR", 3) == 0) {
+      if (addToField(tempX1, tempY1, tempX2, tempY2, TOR, tab))
+        return -1;
+      torQty++;
+      if (torQty > 3) {
+        fprintf(stderr, "A quantidade de TORPEDEIROS excedeu 3!\n");
+        return -1;
+      }
+    } else if (strncmp(pieceBuffer, "TAS", 3) == 0) {
+      if (addToField(tempX1, tempY1, tempX2, tempY2, TAS, tab))
+        return -1;
+      tasQty++;
+      if (tasQty > 2) {
+        fprintf(stderr, "A quantidade de NAVIO-TANQUE excedeu 2!\n");
+        return -1;
+      }
+    } else if (strncmp(pieceBuffer, "AIP", 3) == 0) {
+      if (addToField(tempX1, tempY1, tempX2, tempY2, AIP, tab))
+        return -1;
+      aipQty++;
+      if (aipQty > 1) {
+        fprintf(stderr, "A quantidade de PORTA-AVIOES excedeu 1!\n");
+        return -1;
+      }
     }
+  }
+
+  // Verify if all the pieces are present
+  if (subQty != 5 || torQty != 3 || tasQty != 2 || aipQty != 1) {
+    fprintf(stderr, "Pecas insuficientes para completar um tabuleiro!");
+    return -1;
   }
 
   return 0;
 }
 
-void printField() {}
+void printField(tabuleiro *tab) {
+  printf("\t1  2  3  4  5  6  7  8  9  10 11 12 13 14 "
+         "15\n\t┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐\n");
+  for (unsigned int i = 0; i < 15; i++) {
+    // Letras do lado do tabuleiro
+    printf("%c \t│", 97 + i);
+    for (unsigned int j = 0; j < 15; j++) {
+      switch (tab->field[j][i].type) {
+      case SUB:
+        printf("S │");
+        break;
+      case TOR:
+        printf("T │");
+        break;
+      case TAS:
+        printf("N │");
+        break;
+      case AIP:
+        printf("P │");
+        break;
+      default:
+        printf("  │");
+        break;
+      }
+    }
+    if(i+1 == 15){
+      printf("\n");
+      break;
+    }
+    printf("\n\t├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤\n");
+  }
+  printf("\t└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘\n\n");
+}

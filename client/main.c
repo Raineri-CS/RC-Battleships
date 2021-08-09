@@ -2,24 +2,23 @@
 #include <stdio.h>
 
 int main(int argc, char const *argv[]) {
-  printf("Test\n");
 
   tabuleiro localField;
   FILE *fd;
-  printf("Test\n");
 
   argv[0] = "Battleships";
-  if (argc > 0) {
+  if (argc > 1) {
     fd = fopen(argv[1], "r+");
   } else {
     fd = fopen("predef.field", "r");
   }
-  printf("Test\n");
   init(&localField);
 
   if (!verifyFileIntegrity(fd, &localField)) {
     // TODO o jogo acontece aqui
+    printField(&localField);
   } else {
+    fprintf(stderr, "Arquivo de tabuleiro \"predef.field\" nao encontrado!");
     return -1;
   }
 

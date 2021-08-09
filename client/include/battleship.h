@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <string.h>
+#include <stdlib.h> // abs
 
 // Constantes gerais
 #define FIELD_SIZE 15
@@ -14,6 +15,7 @@
 #define TAS 2  // TAnk Ship
 #define AIP 3  // AIr Port
 #define WAT 10 // WATer
+
 // Game modes
 #define COM 0
 #define PLAYER 1
@@ -41,9 +43,9 @@ ID|Quantidade|Representacao|Nome formal     |Espaco ocupado
 // Adiciona ao campo, sempre inicial, final, tipo
 int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                unsigned int y2, unsigned char type, tabuleiro *tab);
-int gameLoop(char *domain, unsigned short int port);
+int gameLoop(char *domain, unsigned short int port, unsigned char gameMode);
 int verifyFileIntegrity(FILE *fd, tabuleiro *tab);
-void printField();
+void printField(tabuleiro *tab);
 /*
   Simbolos utilizados (Extended ASCII)
   │└├─┐┬┴┼┘┌

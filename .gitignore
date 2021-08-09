@@ -3,3 +3,5 @@
 /bin/
 *.o
 client/client
+client/main
+client/prog

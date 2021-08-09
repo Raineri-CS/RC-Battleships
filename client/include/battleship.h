@@ -50,8 +50,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
                unsigned int y2, unsigned char type, tabuleiro *tab);
 
 // Tenta acertar uma casa do tabuleiro adversario
-int fireProjectile(unsigned int x1, unsigned int y1, unsigned int x2,
-                   unsigned int y2, tabuleiro *tab);
+int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab);
 
 // Loop do jogo, interface principal com o main.c
 int gameLoop(char *domain, unsigned short int port, unsigned char gameMode);

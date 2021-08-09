@@ -42,47 +42,47 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
     return -1;
   }
 
-  /*
-    TODO
-    Preprocessamento (jogo)
-      -> Tentar abrir arquivo de predefinicao de tabuleiro
-      ->
-      se DESCRITOR_TABULEIRO entao
-        se VERIFICAR_INTEGRIDADE(DESCRITOR_TABULEIRO) entao
-          CONSTRUIR_MATRIZ(DESCRITOR_TABULEIRO)
-        senao
-          RETORNE -1
-      senao
-        RANDOMIZA_ESTRUTURAS
-      -> VERIFICAR_INTEGRIDADE devera retornar 0 ou -1, e devera verificar se os
-    tipos procedem no arquivo
-      -> O input sera dado no arquivo como uma chamada de funcao em c
-      -> S(PONTO_INICIAL, MODO, ORIENTACAO)
-         T(PONTO_INICIAL, MODO, ORIENTACAO)
-         N(PONTO_INICIAL, MODO, ORIENTACAO)
-         P(PONTO_INICIAL, MODO, ORIENTACAO)
-
-      -> Sendo PONTO_INICIAL um ponto no tabuleiro, por exemplo a1
-      -> MODO sendo 0 para VERTICAL, e 1 para HORIZONTAL
-      -> ORIENTACAO sendo 0 ESQUERDA/CIMA e 1 DIREITA/BAIXO dependendo do MODO
-  */
-
   /* Finalmente, o loop do jogo */
-  for (;;) {
-    /*
-      TODO
-      O loop consiste em:
-        -> inicioJogo:
-        -> Receber o movimento do server
-        -> Enviar o acerto/erro
-        -> Representar o tabuleiro atual graficamente
-        -> Esperar o comando do cliente
-        -> Esperar resposta do servidor
-        -> se TODDAS_AS_ESTRUTURAS == 0 entao Enviar Venceu!
-        -> se Venceu! entao feche a conexao e retorne 0
-        -> goto inicioJogo (inicio do for)
-    */
+  switch (gameMode) {
+  case COM:
+    for (;;) {
+      /*
+        TODO
+        O loop consiste em:
+          -> inicioJogo:
+          -> Receber o movimento do server
+          -> Enviar o acerto/erro
+          -> Representar o tabuleiro atual graficamente
+          -> Representar o acerto/erro por texto
+          -> Esperar o comando do cliente
+          -> Esperar resposta do servidor
+          -> se TODDAS_AS_ESTRUTURAS == 0 entao Enviar Venceu!
+          -> se Venceu! entao feche a conexao e retorne 0
+          -> goto inicioJogo (inicio do for)
+      */
+    }
+    break;
+  case PLAYER:
+    for (;;) {
+      /*
+        TODO
+        O loop consiste em:
+          -> inicioJogo:
+          -> Receber o movimento do server
+          -> Enviar o acerto/erro
+          -> Representar o tabuleiro atual graficamente
+          -> Esperar o comando do cliente
+          -> Esperar resposta do servidor
+          -> se TODDAS_AS_ESTRUTURAS == 0 entao Enviar Venceu!
+          -> se Venceu! entao feche a conexao e retorne 0
+          -> goto inicioJogo (inicio do for)
+      */
+    }
+    break;
+  default:
+    break;
   }
+
   /* Se por algum motivo ele chegar aqui, deu ruim em algum lugar */
   return -1;
 }
@@ -275,6 +275,14 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
     break;
   default:
     break;
+  }
+  return 0;
+}
+
+int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab) {
+  if (tab->field[x][y].isOccupied) {
+    tab->field[x][y].type = HIT;
+    return HIT;
   }
   return 0;
 }

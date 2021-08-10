@@ -54,7 +54,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
 int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab);
 
 // Loop do jogo, interface principal com o main.c
-int gameLoop(char *domain, unsigned short int port, unsigned char gameMode);
+int gameLoop(char *domain, unsigned short int port, unsigned char gameMode, tabuleiro *tab);
 
 // Verifica se o arquivo condiz com as regras
 int verifyFileIntegrity(FILE *fd, tabuleiro *tab);

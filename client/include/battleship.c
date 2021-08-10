@@ -10,20 +10,24 @@ void clear() {
 #endif
 }
 
-int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
-  int clientSockfd, didRead, subQty, torQty, tasQty, aipQty;
+int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
+             tabuleiro *tab) {
+  int clientSockfd, didRead, subQty, torQty, tasQty, aipQty, tempX, tempY;
   struct sockaddr_in serverAddr;
   struct hostent *host;
-  char recvBuffer[8], sendBuffer[4];
+  char recvBuffer[5], hitBuffer[3], statusBuffer;
 
   /* Inicializacoes */
   clientSockfd = 0;
   recvBuffer[0] = '\0';
-  sendBuffer[0] = '\0';
-  subQty = 0;
-  torQty = 0;
-  tasQty = 0;
-  aipQty = 0;
+  hitBuffer[0] = '\0';
+  statusBuffer = 0;
+  subQty = 5;
+  torQty = 3;
+  tasQty = 2;
+  aipQty = 1;
+  tempX = 0;
+  tempY = 0;
   host = gethostbyname(domain);
 
   /* Protocolo TCP */
@@ -35,7 +39,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
     fprintf(stderr, "\n Errro ao criar a socket! \n");
     return -1;
   }
-  
   memcpy(&serverAddr.sin_addr, host->h_addr_list[0], host->h_length);
 
   if (inet_pton(AF_INET, domain, &serverAddr.sin_addr) <= 0) {
@@ -54,9 +57,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
   case COM:
     for (;;) {
       /*
-        TODO
-        O loop consiste em:
-          -> inicioJogo:
           -> Receber o movimento do server
           -> Enviar o acerto/erro
           -> Representar o tabuleiro atual graficamente
@@ -67,9 +67,24 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode) {
           -> se Venceu! entao feche a conexao e retorne 0
           -> goto inicioJogo (inicio do for)
       */
+      recv(clientSockfd, recvBuffer, 5, 0);
+      sscanf(recvBuffer, "%d %d", &tempX, &tempY);
+      if (fireProjectile(tempX, tempY, tab) == HIT) {
+        send(clientSockfd, "HIT", 3, 0);
+      } else {
+        // Sim, MISS se escreve com 2 s, mas pra salvar 1 byte...
+        send(clientSockfd, "MIS", 3, 0);
+      }
+      recv(clientSockfd, hitBuffer, 3, 0);
+      printField(tab);
+      
     }
     break;
   case PLAYER:
+    while(recv(clientSockfd,&statusBuffer,1,0) != 1){
+      clear();
+      printf("Esperando por outro jogador...\n");
+    }
     for (;;) {
       /*
         TODO
@@ -286,6 +301,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
   return 0;
 }
 
+// Retorna HIT se acertou, 0 se errou
 int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab) {
   if (tab->field[x][y].isOccupied) {
     tab->field[x][y].type = HIT;

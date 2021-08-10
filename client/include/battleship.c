@@ -12,17 +12,17 @@ void clear() {
 
 int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
              tabuleiro *tab) {
-  int clientSockfd, didRead, subQty, torQty, tasQty, aipQty, tempX, tempY;
+  int clientSockfd, didRead, subQty, torQty, tasQty, aipQty, tempX, tempY,
+      lives, valRead;
   struct sockaddr_in serverAddr;
   struct hostent *host;
-  char recvBuffer[5], hitBuffer, statusBuffer;
-  unsigned char didChoose;
+  char recvBuffer[256], sendBuffer[256];
+  unsigned char didChoose, playerMove1, bufClr;
+  unsigned int playerMove2;
 
   /* Inicializacoes */
   clientSockfd = 0;
   recvBuffer[0] = '\0';
-  hitBuffer = '\0';
-  statusBuffer = 0;
   subQty = 5;
   torQty = 3;
   tasQty = 2;
@@ -30,6 +30,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   tempX = 0;
   tempY = 0;
   didChoose = 0;
+  lives = 32;
   host = gethostbyname(domain);
 
   /* Protocolo TCP */
@@ -43,11 +44,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   }
   memcpy(&serverAddr.sin_addr, host->h_addr_list[0], host->h_length);
 
-  if (inet_pton(AF_INET, domain, &serverAddr.sin_addr) <= 0) {
-    fprintf(stderr, "\n Endereco invalido ou nao suportado pelo AF_INET \n");
-    return -1;
-  }
-
   if (connect(clientSockfd, (struct sockaddr *)&serverAddr,
               sizeof(serverAddr)) < 0) {
     fprintf(stderr, "\n Conexao falhou! \n");
@@ -58,45 +54,81 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   switch (gameMode) {
   case COM:
     // Envia a mensagem que se deseja jogar no modo COM
-    statusBuffer = COM + '0';
-    send(clientSockfd, &statusBuffer, 1, 0);
+    sendBuffer[0] = COM + '0';
+    send(clientSockfd, &sendBuffer[0], 1, 0);
     for (;;) {
-      /*
-          -> Receber o movimento do server
-          -> Enviar o acerto/erro
-          -> Representar o tabuleiro atual graficamente
-          -> Representar o acerto/erro por texto
-          -> Esperar o comando do cliente
-          -> Esperar resposta do servidor
-          -> se TODDAS_AS_ESTRUTURAS == 0 entao Enviar Venceu!
-          -> se Venceu! entao feche a conexao e retorne 0
-          -> goto inicioJogo (inicio do for)
-      */
-      if (recv(clientSockfd, recvBuffer, 5, 0) < 0) {
+      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
         fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
         return -1;
       }
-      sscanf(recvBuffer, "%d %d", &tempX, &tempY);
-      if (fireProjectile(tempX, tempY, tab) == HIT) {
-        hitBuffer = GAME_HIT + '0';
-        send(clientSockfd, &hitBuffer, 1, 0);
+      recvBuffer[valRead] = '\0';
+      fprintf(stderr, "THIS IS DEBUG %s\n", recvBuffer);
+      // Quer dizer que ele leu um ataque
+      if (valRead > 1) {
+        if (fireProjectile(tempX, tempY, tab) == HIT) {
+          lives--;
+        }
+        // Se a quantidade de vidas dessa estrutura...
+        if (lives <= 0) {
+          // Setta aqui o que vai ser ENVIADO pro cliente
+          sprintf(sendBuffer, "%c", GAME_WIN + '0');
+          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+        }
+        // Se as vidas nao acabaram, continua o jogo...
       } else {
-        // Sim, MISS se escreve com 2 s, mas pra salvar 1 byte...
-        hitBuffer = GAME_MISS + '0';
-        send(clientSockfd, &hitBuffer, 1, 0);
+        switch (recvBuffer[0]) {
+        case GAME_HIT:
+          printf("Voce acertou o adversario!\n");
+          break;
+        case GAME_MISS:
+          printf("Voce errou o adversario!\n");
+          break;
+        case GAME_WIN:
+          printf("Parabens, voce ganhou o jogo!\n");
+          close(clientSockfd);
+          return 0;
+          break;
+        case GAME_OVER:
+        case GAME_LOSE:
+          printf("Que pena! Voce perdeu o jogo.\n");
+          close(clientSockfd);
+          return 0;
+          break;
+        default:
+          break;
+        }
       }
-      recv(clientSockfd, &hitBuffer, 1, 0);
+      // Mostra o tabuleiro local
       printField(tab);
+
+      // Le o movimento do jogador
+      printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
+      scanf("%c", &playerMove1);
+      scanf("%d", &playerMove2);
+      // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n, FIQUEI 2
+      // HORAS PRA ACHAR ESSE BUG, NAO MEXER
+      bufClr = getchar();
+
+      // strncpy(sendBuffer, "\0", 256);
+      sprintf(sendBuffer, "%d %d", (playerMove1 - 97), playerMove2);
+      printf("PlayerMove1 : %c\n", playerMove1);
+      printf("PlayerMove2 : %d\n", playerMove2);
+      printf("SEND BUFFER: %s\n", sendBuffer);
+
+      send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
     }
     break;
   case PLAYER:
+    sendBuffer[0] = PLAYER + '0';
+    send(clientSockfd, &sendBuffer[0], 1, 0);
     while (!didChoose) {
-      if (recv(clientSockfd, &statusBuffer, 1, 0) < 0) {
-        fprintf(stderr, "Erro em receber informacoes do servidor\n");
+      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
+        fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
         return -1;
       }
+      recvBuffer[valRead] = '\0';
       clear();
-      switch (atoi(&statusBuffer)) {
+      switch (atoi(&sendBuffer[0])) {
       case IDLE:
         printf("Esperando por outro jogador...\n");
         break;
@@ -328,6 +360,7 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
 int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab) {
   if (tab->field[x][y].isOccupied) {
     tab->field[x][y].type = HIT;
+    tab->field[x][y].isOccupied = 0;
     return HIT;
   }
   return 0;

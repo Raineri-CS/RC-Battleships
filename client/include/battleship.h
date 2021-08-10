@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <time.h>
+#include <unistd.h> // close
 
 // Constantes gerais
 #define FIELD_SIZE 15
@@ -20,8 +21,8 @@
 #define HIT 11
 
 // Game modes
-#define COM 0
-#define PLAYER 1
+#define COM 1
+#define PLAYER 2
 
 // Orientations
 #define UP 0
@@ -37,6 +38,8 @@
 #define GAME_MOVE 5
 #define GAME_HIT 6
 #define GAME_MISS 7
+#define GAME_OVER 8
+#define GAME_WAIT 9
 
 typedef struct pieceProto {
   unsigned char isOccupied;

@@ -1,3 +1,4 @@
+#include "include/battleship.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -5,10 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
+#include <sys/time.h> // FD_SET, FD_ISSET, FD_ZERO, time_t
 #include <sys/types.h>
 #include <unistd.h>
-#include "include/battleship.h"
 
 #define PORT 9030
 // Numero maximo de clientes que o programa vai aceitar de uma so vez
@@ -19,14 +19,14 @@ int main(int argc, char const *argv[]) {
   int opt = 1;
 
   int masterSocket, addrlen, newSocket, clientSocket[MAX_CLIENTS], activity, i,
-      valread, sd, clientNum;
+      valRead, sd, clientNum, gameStatus[MAX_CLIENTS], tempX, tempY;
 
   // Valor maximo dos descritores de socket
   int maxSd;
 
   struct sockaddr_in address;
 
-  char buffer[1025]; // Buffer de dados
+  char buffer[1025], sendBuffer[128]; // Buffer de dados
 
   // Conjunto de descritores de socket para a multiplexacao
   fd_set readfds;
@@ -34,13 +34,28 @@ int main(int argc, char const *argv[]) {
   // a message
   char *message = "Battleships - Lucas Roberto Raineri oliveira \r\n";
 
-  tabuleiro serverField;
+  // Os campos do server caso todos os clientes queiram jogar contra a CPU
+  tabuleiro serverField[MAX_CLIENTS];
 
+  // TODO ideia futura
+  // A ideia inicial era connectedForPlayerGame ser um vetor para escalar em N
+  // jogadores, porem, restricao de tempo isWaiting eh gambiarra pra nao ter que
+  // refatorar o codigo e mexer com coisas sensiveis
+  unsigned int connectedForPlayerGame, isWaiting[MAX_CLIENTS],
+      lives[MAX_CLIENTS];
 
   clientNum = 0;
+  connectedForPlayerGame = 0;
 
-  // Inicializa todas as sockets com 0
+  // Seed do gerador de numeros aleatorios
+  srand((time_t)NULL);
+
+  // Inicializa todas as sockets e auxiliares com 0
   for (i = 0; i < MAX_CLIENTS; i++) {
+    init(&serverField[i]);
+    lives[i] = 32;
+    isWaiting[i] = 0;
+    gameStatus[i] = 0;
     clientSocket[i] = 0;
   }
 
@@ -81,7 +96,6 @@ int main(int argc, char const *argv[]) {
 
   // Aceita conexoes
   addrlen = sizeof(address);
-  printf("Waiting for connections ...\n");
 
   // A ideia eh ter um loop infinito, que passa por todas as sockets por loop, a
   // fluidez do servidor depende inteiramente do processador conseguir executar
@@ -163,7 +177,7 @@ int main(int argc, char const *argv[]) {
       if (FD_ISSET(sd, &readfds)) {
         // Se a operacao que esta vindo eh de fechamento e leitura da mensagem
         // vindo
-        if ((valread = read(sd, buffer, 1024)) == 0) {
+        if ((valRead = read(sd, buffer, 1024)) == 0) {
           // Alguem disconectou, printa as informacoes da desconexao na tela
           getpeername(sd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
           printf("Hospedeiro desconectou , ip %s , port %d \n",
@@ -172,29 +186,83 @@ int main(int argc, char const *argv[]) {
           // Fechar o descritor da socket e liberar espaco no vetor de
           // sockets...
           close(sd);
+          // Resetar o status do jogo
+          gameStatus[i] = 0;
+          // Decrementar a quantidade de clientes
+          clientNum--;
           clientSocket[i] = 0;
         }
         // A troca de mensagens vai ser aqui
         else {
           // Como as mensagens que vem nao tem o caractere nulo pra terminar,
           // adicionar
-          buffer[valread] = '\0';
+          buffer[valRead] = '\0';
           // TODO
-          // Vai definir o gamemode
-          switch(atoi(&buffer[0])){
+          // Se o status do jogo for 0 quer dizer que nao tem nenhum jogo sendo
+          // executado
+          if (!gameStatus[i]) {
+            // Vai definir o gamemode
+            switch (atoi(&buffer[0])) {
             case COM:
               // O jogador quer jogar contra a maquina
               // Inicializar o tabuleiro do servidor
-              randomizePieces(&serverField);
-              
+              randomizePieces(&serverField[i]);
+              gameStatus[i] = COM;
               break;
             case PLAYER:
-              // O jogador quer jogar contra outro jogador, portanto, aguardar 2 conexoes
+              // O jogador quer jogar contra outro jogador, portanto, aguardar 2
+              // conexoes
+              if (connectedForPlayerGame == 2) {
+                gameStatus[i] = PLAYER;
+              } else if (!isWaiting[i]) {
+                isWaiting[i] = 1;
+                connectedForPlayerGame++;
+              }
               break;
             default:
               break;
+            }
+          } else {
+            // TODO O jogo vai acontecer aqui
+            switch (gameStatus[i]) {
+            case COM:
+              if (valRead > 1) {
+                sscanf(buffer, "%d %d", &tempX, &tempY);
+                // Verifica se acertou alguma estrutura
+                if (fireProjectile(tempX, tempY, &serverField[i]) == HIT) {
+                  lives[i]--;
+                  sprintf(sendBuffer, "%d", GAME_HIT + '0');
+                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                }
+                // Se a quantidade de vidas dessa estrutura...
+                if (lives[i] <= 0) {
+                  // Setta aqui o que vai ser ENVIADO pro cliente
+                  sprintf(sendBuffer, "%c", GAME_WIN + '0');
+                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                } else {
+                  // Se as vidas nao acabaram, continua o jogo...
+                  sprintf(sendBuffer, "%d %d", rand() % 15, rand() % 15);
+                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                }
+              } else {
+                if (buffer[0] == GAME_WIN || buffer[0] == GAME_LOSE) {
+                  sprintf(sendBuffer, "%c", GAME_LOSE + '0');
+                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                  gameStatus[i] = GAME_OVER;
+                }
+              }
+              break;
+            case PLAYER:
+              break;
+            case GAME_LOSE:
+            case GAME_WIN:
+              // TODO Mandar mensagem e encerrar o jogo no game_over
+            case GAME_OVER:
+              // TODO Encerrrar o jogo aqui
+            default:
+              break;
+            }
           }
-
         }
       }
     }

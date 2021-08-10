@@ -11,7 +11,7 @@ int main(int argc, char const *argv[]) {
     fd = fopen("predef.field", "r");
 
   } else if (argc == 4) {
-    fd = fopen(argv[1], "r");
+    fd = fopen(argv[3], "r");
   } else {
     fprintf(stderr, "Erro na quantidade de parametros, devem seguir ./client "
                     "DOMINIO PORTA ARQUIVO[opcional]\n");
@@ -28,7 +28,7 @@ int main(int argc, char const *argv[]) {
 
   if (fd == 0 || !verifyFileIntegrity(fd, &localField)) {
     // TODO o jogo acontece aqui
-    printField(&localField);
+    gameLoop((char *)argv[1], (unsigned short)atoi(argv[2]), COM, &localField);
   } else {
     fprintf(stderr, "Arquivo de tabuleiro \"predef.field\" nao encontrado!");
     return -1;

@@ -8,6 +8,7 @@
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 #include <sys/types.h>
 #include <unistd.h>
+#include "include/battleship.h"
 
 #define PORT 9030
 // Numero maximo de clientes que o programa vai aceitar de uma so vez
@@ -31,7 +32,10 @@ int main(int argc, char const *argv[]) {
   fd_set readfds;
 
   // a message
-  char *message = "ECHO Daemon v1.0 \r\n";
+  char *message = "Battleships - Lucas Roberto Raineri oliveira \r\n";
+
+  tabuleiro serverField;
+
 
   clientNum = 0;
 
@@ -170,14 +174,27 @@ int main(int argc, char const *argv[]) {
           close(sd);
           clientSocket[i] = 0;
         }
-
         // A troca de mensagens vai ser aqui
         else {
           // Como as mensagens que vem nao tem o caractere nulo pra terminar,
           // adicionar
           buffer[valread] = '\0';
           // TODO
-          send(sd, buffer, strlen(buffer), 0);
+          // Vai definir o gamemode
+          switch(atoi(&buffer[0])){
+            case COM:
+              // O jogador quer jogar contra a maquina
+              // Inicializar o tabuleiro do servidor
+              randomizePieces(&serverField);
+              
+              break;
+            case PLAYER:
+              // O jogador quer jogar contra outro jogador, portanto, aguardar 2 conexoes
+              break;
+            default:
+              break;
+          }
+
         }
       }
     }

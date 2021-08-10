@@ -2,12 +2,12 @@
 #define __BATTLESHIP_H__
 // TODO documentar o que usei de cada
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h> // abs
 #include <string.h>
 #include <sys/socket.h>
 #include <time.h>
-#include <netdb.h>
 
 // Constantes gerais
 #define FIELD_SIZE 15
@@ -28,6 +28,15 @@
 #define DOWN 1
 #define LEFT 2
 #define RIGHT 3
+
+// Status codes
+#define IDLE 1
+#define GAME_START 2
+#define GAME_WIN 3
+#define GAME_LOSE 4
+#define GAME_MOVE 5
+#define GAME_HIT 6
+#define GAME_MISS 7
 
 typedef struct pieceProto {
   unsigned char isOccupied;
@@ -54,7 +63,8 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
 int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab);
 
 // Loop do jogo, interface principal com o main.c
-int gameLoop(char *domain, unsigned short int port, unsigned char gameMode, tabuleiro *tab);
+int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
+             tabuleiro *tab);
 
 // Verifica se o arquivo condiz com as regras
 int verifyFileIntegrity(FILE *fd, tabuleiro *tab);

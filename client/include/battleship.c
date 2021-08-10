@@ -15,12 +15,13 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   int clientSockfd, didRead, subQty, torQty, tasQty, aipQty, tempX, tempY;
   struct sockaddr_in serverAddr;
   struct hostent *host;
-  char recvBuffer[5], hitBuffer[3], statusBuffer;
+  char recvBuffer[5], hitBuffer, statusBuffer;
+  unsigned char didChoose;
 
   /* Inicializacoes */
   clientSockfd = 0;
   recvBuffer[0] = '\0';
-  hitBuffer[0] = '\0';
+  hitBuffer = '\0';
   statusBuffer = 0;
   subQty = 5;
   torQty = 3;
@@ -28,6 +29,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   aipQty = 1;
   tempX = 0;
   tempY = 0;
+  didChoose = 0;
   host = gethostbyname(domain);
 
   /* Protocolo TCP */
@@ -36,7 +38,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
 
   /* Abre a socket do cliente no modo tcp do tipo STREAM */
   if ((clientSockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    fprintf(stderr, "\n Errro ao criar a socket! \n");
+    fprintf(stderr, "\n Erro ao criar a socket! \n");
     return -1;
   }
   memcpy(&serverAddr.sin_addr, host->h_addr_list[0], host->h_length);
@@ -55,6 +57,9 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   /* Finalmente, o loop do jogo */
   switch (gameMode) {
   case COM:
+    // Envia a mensagem que se deseja jogar no modo COM
+    statusBuffer = COM + '0';
+    send(clientSockfd, &statusBuffer, 1, 0);
     for (;;) {
       /*
           -> Receber o movimento do server
@@ -67,24 +72,42 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           -> se Venceu! entao feche a conexao e retorne 0
           -> goto inicioJogo (inicio do for)
       */
-      recv(clientSockfd, recvBuffer, 5, 0);
+      if (recv(clientSockfd, recvBuffer, 5, 0) < 0) {
+        fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
+        return -1;
+      }
       sscanf(recvBuffer, "%d %d", &tempX, &tempY);
       if (fireProjectile(tempX, tempY, tab) == HIT) {
-        send(clientSockfd, "HIT", 3, 0);
+        hitBuffer = GAME_HIT + '0';
+        send(clientSockfd, &hitBuffer, 1, 0);
       } else {
         // Sim, MISS se escreve com 2 s, mas pra salvar 1 byte...
-        send(clientSockfd, "MIS", 3, 0);
+        hitBuffer = GAME_MISS + '0';
+        send(clientSockfd, &hitBuffer, 1, 0);
       }
-      recv(clientSockfd, hitBuffer, 3, 0);
+      recv(clientSockfd, &hitBuffer, 1, 0);
       printField(tab);
-      
     }
     break;
   case PLAYER:
-    while(recv(clientSockfd,&statusBuffer,1,0) != 1){
+    while (!didChoose) {
+      if (recv(clientSockfd, &statusBuffer, 1, 0) < 0) {
+        fprintf(stderr, "Erro em receber informacoes do servidor\n");
+        return -1;
+      }
       clear();
-      printf("Esperando por outro jogador...\n");
+      switch (atoi(&statusBuffer)) {
+      case IDLE:
+        printf("Esperando por outro jogador...\n");
+        break;
+      case GAME_START:
+        didChoose = !didChoose;
+        break;
+      default:
+        break;
+      }
     }
+    printf("O jogo esta prestes a comecar!\n");
     for (;;) {
       /*
         TODO

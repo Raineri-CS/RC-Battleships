@@ -19,7 +19,8 @@ int main(int argc, char const *argv[]) {
   int opt = 1;
 
   int masterSocket, addrlen, newSocket, clientSocket[MAX_CLIENTS], activity, i,
-      valRead, sd, clientNum, gameStatus[MAX_CLIENTS], tempX, tempY;
+      valRead, sd, clientNum, gameStatus[MAX_CLIENTS], tempX, tempY,
+      paramAmount;
 
   // Valor maximo dos descritores de socket
   int maxSd;
@@ -32,7 +33,7 @@ int main(int argc, char const *argv[]) {
   fd_set readfds;
 
   // a message
-  char *message = "Battleships - Lucas Roberto Raineri oliveira \r\n";
+  char *message = "Battleships - Lucas Roberto Raineri Oliveira - 38346\r\n";
 
   // Os campos do server caso todos os clientes queiram jogar contra a CPU
   tabuleiro serverField[MAX_CLIENTS];
@@ -46,7 +47,7 @@ int main(int argc, char const *argv[]) {
 
   clientNum = 0;
   connectedForPlayerGame = 0;
-
+  paramAmount = 0;
   // Seed do gerador de numeros aleatorios
   srand((time_t)NULL);
 
@@ -149,7 +150,7 @@ int main(int argc, char const *argv[]) {
              newSocket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
       // Manda o status de espera
-      if (send(newSocket, "1", 1, 0) != strlen(message)) {
+      if (send(newSocket, message, strlen(message), 0) != strlen(message)) {
         fprintf(stderr, "send");
       }
 
@@ -194,6 +195,8 @@ int main(int argc, char const *argv[]) {
         }
         // A troca de mensagens vai ser aqui
         else {
+          // Usado no PvP
+          paramAmount = 0;
           // Como as mensagens que vem nao tem o caractere nulo pra terminar,
           // adicionar
           buffer[valRead] = '\0';
@@ -231,22 +234,22 @@ int main(int argc, char const *argv[]) {
                 // Verifica se acertou alguma estrutura
                 if (fireProjectile(tempX, tempY, &serverField[i]) == HIT) {
                   lives[i]--;
-                  sprintf(sendBuffer, "%d", GAME_HIT + '0');
-                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
-                }
-                // Se a quantidade de vidas dessa estrutura...
-                if (lives[i] <= 0) {
+                  if (lives[i] <= 0) {
                   // Setta aqui o que vai ser ENVIADO pro cliente
-                  sprintf(sendBuffer, "%c", GAME_WIN + '0');
+                  sprintf(sendBuffer, "%c ", GAME_WIN + '0');
+                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                  }
+                  sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
+                          rand() % 15);
                   send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
                 } else {
-                  // Se as vidas nao acabaram, continua o jogo...
-                  sprintf(sendBuffer, "%d %d", rand() % 15, rand() % 15);
+                  sprintf(sendBuffer, "%c %d %d ", GAME_MISS + '0', rand() % 15,
+                          rand() % 15);
                   send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
                 }
               } else {
                 if (buffer[0] == GAME_WIN || buffer[0] == GAME_LOSE) {
-                  sprintf(sendBuffer, "%c", GAME_LOSE + '0');
+                  sprintf(sendBuffer, "%c ", GAME_LOSE + '0');
                   send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
                   gameStatus[i] = GAME_OVER;
                 }
@@ -254,9 +257,6 @@ int main(int argc, char const *argv[]) {
               break;
             case PLAYER:
               break;
-            case GAME_LOSE:
-            case GAME_WIN:
-              // TODO Mandar mensagem e encerrar o jogo no game_over
             case GAME_OVER:
               // TODO Encerrrar o jogo aqui
             default:

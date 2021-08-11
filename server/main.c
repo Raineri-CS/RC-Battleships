@@ -14,7 +14,6 @@
 // Numero maximo de clientes que o programa vai aceitar de uma so vez
 #define MAX_CLIENTS 2
 
-// FIXME aprender a usar o SELECT
 int main(int argc, char const *argv[]) {
   int opt = 1;
 
@@ -27,7 +26,8 @@ int main(int argc, char const *argv[]) {
 
   struct sockaddr_in address;
 
-  char buffer[1025], sendBuffer[128]; // Buffer de dados
+  char buffer[1025], sendBuffer[128],
+      persistentBuffer[MAX_CLIENTS][128]; // Buffer de dados
 
   // Conjunto de descritores de socket para a multiplexacao
   fd_set readfds;
@@ -215,10 +215,22 @@ int main(int argc, char const *argv[]) {
             case PLAYER:
               // O jogador quer jogar contra outro jogador, portanto, aguardar 2
               // conexoes
-              if (connectedForPlayerGame == 2) {
+              if (connectedForPlayerGame + 1 == 2) {
+                connectedForPlayerGame++;
+                sprintf(sendBuffer, "%c ", GAME_START + '0');
+                send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                // FIXME de novo, time constraint
+                send(clientSocket[i - 1], sendBuffer, strlen(sendBuffer), 0);
+                isWaiting[i] = 0;
+                isWaiting[i-1] = 0;
                 gameStatus[i] = PLAYER;
+                gameStatus[i - 1] = PLAYER;
+                printf("Sessao de jogo iniciando...\n");
+
               } else if (!isWaiting[i]) {
                 isWaiting[i] = 1;
+                sprintf(sendBuffer, "%c", IDLE + '0');
+                send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
                 connectedForPlayerGame++;
               }
               break;
@@ -235,9 +247,9 @@ int main(int argc, char const *argv[]) {
                 if (fireProjectile(tempX, tempY, &serverField[i]) == HIT) {
                   lives[i]--;
                   if (lives[i] <= 0) {
-                  // Setta aqui o que vai ser ENVIADO pro cliente
-                  sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-                  send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
+                    // Setta aqui o que vai ser ENVIADO pro cliente
+                    sprintf(sendBuffer, "%c ", GAME_WIN + '0');
+                    send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
                   }
                   sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
                           rand() % 15);
@@ -256,6 +268,54 @@ int main(int argc, char const *argv[]) {
               }
               break;
             case PLAYER:
+              // FIXME isso aqui ta horrivel, mas estou fazendo pra entregar na
+              // deadline
+              if (isWaiting[0] && isWaiting[1]) {
+                // FIXME sim, horrivel, eu sei
+                isWaiting[0] = 0;
+                isWaiting[1] = 0;
+                // Envia a primeira mensagem do primeiro cliente
+                sscanf(persistentBuffer[0], "%c %d %d", &sendBuffer[0], &tempX,
+                       &tempY);
+                sprintf(sendBuffer, "%c %d %d ", sendBuffer[0], tempX, tempY);
+                send(clientSocket[1], sendBuffer, strlen(sendBuffer), 0);
+
+                // TODO se der tempo, generalizar esse bloco do IF inteiro pra
+                // ser escalavel
+                sscanf(persistentBuffer[1], "%c %d %d", &sendBuffer[0], &tempX,
+                       &tempY);
+                sprintf(sendBuffer, "%c %d %d ", sendBuffer[0], tempX, tempY);
+                send(clientSocket[0], sendBuffer, strlen(sendBuffer), 0);
+              } else {
+                switch (i) {
+                case 0:
+                  // Chegou comando desse cliente, logo ele tem que esperar para
+                  // que o outro tambem faca o seu
+                  if (!isWaiting[0]) {
+                    // Guarda a mensagem ate que os dois jogadores estejam
+                    // esperando, passando o idle como status para que fiquem
+                    // esperando o outro intermitentemente
+                    memcpy(persistentBuffer[0], buffer, strlen(buffer));
+                    isWaiting[0] = 1;
+                  }
+
+                  sprintf(sendBuffer, "%c ", IDLE + '0');
+                  send(clientSocket[0], sendBuffer, strlen(sendBuffer), 0); 
+                  break;
+                case 1:
+                  if (!isWaiting[1]) {
+                    memcpy(persistentBuffer[1], buffer, strlen(buffer));
+                    isWaiting[1] = 1;
+                  }
+                  sprintf(sendBuffer, "%c ", IDLE + '0');
+                  send(clientSocket[1], sendBuffer, strlen(sendBuffer), 0);
+                  // TODO generalizar esse switch case, se der tempo
+                  break;
+                default:
+                  break;
+                }
+              }
+
               break;
             case GAME_OVER:
               // TODO Encerrrar o jogo aqui

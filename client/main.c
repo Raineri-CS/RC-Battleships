@@ -5,6 +5,10 @@ int main(int argc, char const *argv[]) {
 
   tabuleiro localField;
   FILE *fd;
+  unsigned int opc;
+  char bufClr;
+
+  opc = 0;
 
   argv[0] = "Battleships";
   if (argc == 3) {
@@ -27,8 +31,24 @@ int main(int argc, char const *argv[]) {
   }
 
   if (fd == 0 || !verifyFileIntegrity(fd, &localField)) {
-    // TODO o jogo acontece aqui
-    gameLoop((char *)argv[1], (unsigned short)atoi(argv[2]), COM, &localField);
+    do {
+      printf("Informe contra quem quer jogar\n1 - COM\n2 - PLAYER\n");
+      scanf("%ud", &opc);
+      // Limpa o buffer de input
+      bufClr = getchar();
+    } while (opc < 0 || opc > 2);
+    switch (opc) {
+    case COM:
+      gameLoop((char *)argv[1], (unsigned short)atoi(argv[2]), COM,
+               &localField);
+      break;
+    case PLAYER:
+      gameLoop((char *)argv[1], (unsigned short)atoi(argv[2]), PLAYER,
+               &localField);
+      break;
+    default:
+      break;
+    }
   } else {
     fprintf(stderr, "Arquivo de tabuleiro \"predef.field\" nao encontrado!");
     return -1;

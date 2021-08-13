@@ -11,8 +11,17 @@
 #include <unistd.h>
 
 #define PORT 9030
-// Numero maximo de clientes que o programa vai aceitar de uma so vez
+// Numero maximo de clientes que o programa vai aceitar de uma so vez SEMPRE
+// DEVE SER PAR
 #define MAX_CLIENTS 2
+#define MAX_PER_GAME_SESSION 2
+
+typedef struct gameSessionProto {
+  int *clientFd[MAX_PER_GAME_SESSION];
+  unsigned char isOngoing, areClientsReady;
+  // Usado para guardar mensagens ate que todos os clientes estejam prontos
+  char persistentBuffer[MAX_PER_GAME_SESSION][128];
+} gameSession;
 
 int main(int argc, char const *argv[]) {
   int opt = 1;
@@ -23,6 +32,8 @@ int main(int argc, char const *argv[]) {
 
   // Valor maximo dos descritores de socket
   int maxSd;
+
+  gameSession session[MAX_CLIENTS / 2];
 
   struct sockaddr_in address;
 
@@ -58,6 +69,19 @@ int main(int argc, char const *argv[]) {
     isWaiting[i] = 0;
     gameStatus[i] = 0;
     clientSocket[i] = 0;
+  }
+
+  // Inicializa as salas
+  for (i = 0; i < MAX_CLIENTS / 2; i++) {
+    session[i].areClientsReady = 0;
+    session[i].isOngoing = 0;
+    session[i].clientFd[0] = 0;
+    session[i].clientFd[1] = 0;
+    for (int j = 0; j < MAX_PER_GAME_SESSION; j++) {
+      for (int k = 0; k < 128; k++) {
+        session[i].persistentBuffer[j][k] = '\0';
+      }
+    }
   }
 
   // Cria a socket master
@@ -213,25 +237,61 @@ int main(int argc, char const *argv[]) {
               gameStatus[i] = COM;
               break;
             case PLAYER:
-              // O jogador quer jogar contra outro jogador, portanto, aguardar 2
-              // conexoes
-              if (connectedForPlayerGame + 1 == 2) {
-                connectedForPlayerGame++;
-                sprintf(sendBuffer, "%c ", GAME_START + '0');
-                send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
-                // FIXME de novo, time constraint
-                send(clientSocket[i - 1], sendBuffer, strlen(sendBuffer), 0);
-                isWaiting[i] = 0;
-                isWaiting[i-1] = 0;
-                gameStatus[i] = PLAYER;
-                gameStatus[i - 1] = PLAYER;
-                printf("Sessao de jogo iniciando...\n");
+              // Caso escolha jogar contra outro jogador, usar a gameSession
+              // Para fazer isso eu decidi criar uma estrutura gameSession, que
+              // guarda as informacoes principais dos clientes conectados e
+              // jogando, facilitando a organizacao futura do escalamento do
+              // software, o drawback sendo a checagem de pertencimento a cada
+              // mensagem recebida, encontrando a sessao que o this jogador
+              // pertence
 
-              } else if (!isWaiting[i]) {
-                isWaiting[i] = 1;
-                sprintf(sendBuffer, "%c", IDLE + '0');
-                send(clientSocket[i], sendBuffer, strlen(sendBuffer), 0);
-                connectedForPlayerGame++;
+              for (int j = 0; j < (MAX_CLIENTS / 2); j++) {
+                // Se a sessao nao estiver cheia, adicionar this cliente na
+                // sessao
+                if (!session[j].isOngoing) {
+                  for (int k = 0; k < MAX_PER_GAME_SESSION; k++) {
+                    // Se o pointer do cliente estiver vazio, quer dizer que a
+                    // "cadeira" dele pode ser ocupada
+                    if (session[j].clientFd[k] == 0) {
+                      // sd eh o client socket atual, mas ele nao eh persistente
+                      session[j].clientFd[k] = &clientSocket[i];
+                      // Esse cara vem por fora, detectando as mensagens, entao
+                      // para this->socket == IDLE
+                      sprintf(sendBuffer, "%c ", IDLE + '0');
+                      send(sd, sendBuffer, strlen(sendBuffer), 0);
+                      // Se adicionou, nao tem merito continuar no loop
+                      break;
+                    } else if (session[j].clientFd[k] != 0 &&
+                               k + 2 == MAX_PER_GAME_SESSION) {
+                      // Essa parte eh para nao acontecer um deadlock em que os
+                      // dois estao no estado IDLE
+                      // Simula um bool
+                      session[j].isOngoing = 1;
+                      session[j].clientFd[k + 1] = &clientSocket[i];
+                      sprintf(sendBuffer, "%c ", GAME_START + '0');
+                      // Como teoricamente a sala esta cheia, percorrer todos os
+                      // clientes, mandandoo a flag GAME_START
+                      for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
+                        send(*session[j].clientFd[l], sendBuffer,
+                             strlen(sendBuffer), 0);
+                      }
+                      printf(
+                          "Sessao de jogo iniciando para a gameSession %d...\n",
+                          j);
+
+                      // Tem que settar o gameStatus de todos os clientes
+                      // participantes para o modo de jogo PLAYER
+                      for (int l = 0; l < MAX_CLIENTS; l++) {
+                        if (*session[j].clientFd[l] == clientSocket[l]) {
+                          gameStatus[l] = PLAYER;
+                        }
+                      }
+
+                      // Economiza um loop
+                      break;
+                    }
+                  }
+                }
               }
               break;
             default:
@@ -268,57 +328,51 @@ int main(int argc, char const *argv[]) {
               }
               break;
             case PLAYER:
-              // FIXME isso aqui ta horrivel, mas estou fazendo pra entregar na
-              // deadline
-              if (isWaiting[0] && isWaiting[1]) {
-                // FIXME sim, horrivel, eu sei
-                isWaiting[0] = 0;
-                isWaiting[1] = 0;
-                // Envia a primeira mensagem do primeiro cliente
-                sscanf(persistentBuffer[0], "%c %d %d", &sendBuffer[0], &tempX,
-                       &tempY);
-                sprintf(sendBuffer, "%c %d %d ", sendBuffer[0], tempX, tempY);
-                send(clientSocket[1], sendBuffer, strlen(sendBuffer), 0);
+              for (int j = 0; j < (MAX_CLIENTS / 2); j++) {
+                for (int k = 0; k < MAX_PER_GAME_SESSION; k++) {
+                  // Se o cara que enviou a mensagem pertence a essa sessao
+                  if (*session[j].clientFd[k] == sd) {
+                    // Copiar a mensagem para um buffer persistente de indice
+                    // igual ao seu no array de clientes
+                    strcpy(session[j].persistentBuffer[k], buffer);
+                    // O custo de fazer as coisas sem ser async eh a
+                    // complexidade quadratica Verifica se todos os clientes tem
+                    // mensagens para enviar
+                    // Assumir com otimismo que todas as mensagens estarao
+                    // prontas para envio
+                    session[j].areClientsReady = 1;
+                    for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
+                      if (session[j].persistentBuffer[l][0] == '\0') {
+                        session[j].areClientsReady = 0;
+                        break;
+                      }
+                    }
 
-                // TODO se der tempo, generalizar esse bloco do IF inteiro pra
-                // ser escalavel
-                sscanf(persistentBuffer[1], "%c %d %d", &sendBuffer[0], &tempX,
-                       &tempY);
-                sprintf(sendBuffer, "%c %d %d ", sendBuffer[0], tempX, tempY);
-                send(clientSocket[0], sendBuffer, strlen(sendBuffer), 0);
-              } else {
-                switch (i) {
-                case 0:
-                  // Chegou comando desse cliente, logo ele tem que esperar para
-                  // que o outro tambem faca o seu
-                  if (!isWaiting[0]) {
-                    // Guarda a mensagem ate que os dois jogadores estejam
-                    // esperando, passando o idle como status para que fiquem
-                    // esperando o outro intermitentemente
-                    memcpy(persistentBuffer[0], buffer, strlen(buffer));
-                    isWaiting[0] = 1;
-                  }
+                    // Se todas as mensagens estao prontas para envio
+                    if (session[j].areClientsReady) {
+                      for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
+                        strcpy(sendBuffer, session[j].persistentBuffer[l]);
+                        // Vai enviar para todos os clientes a nao ser ele mesmo
+                        for (int m = 0; m < MAX_PER_GAME_SESSION; m++) {
+                          if (l != m) {
+                            send(*session[j].clientFd[l], sendBuffer,
+                                 strlen(sendBuffer), 0);
+                          }
+                        }
+                        // Depois de enviadas, "zerar" o buffer persistente
+                        // atual
+                        strcpy(session[j].persistentBuffer[l], "\0");
+                      }
+                    }
 
-                  sprintf(sendBuffer, "%c ", IDLE + '0');
-                  send(clientSocket[0], sendBuffer, strlen(sendBuffer), 0); 
-                  break;
-                case 1:
-                  if (!isWaiting[1]) {
-                    memcpy(persistentBuffer[1], buffer, strlen(buffer));
-                    isWaiting[1] = 1;
+                    // Passa a flag IDLE para que o jogador espere o outro fazer
+                    // seu movimento
+                    sprintf(sendBuffer, "%c ", IDLE + '0');
+                    send(sd, sendBuffer, strlen(sendBuffer), 0);
                   }
-                  sprintf(sendBuffer, "%c ", IDLE + '0');
-                  send(clientSocket[1], sendBuffer, strlen(sendBuffer), 0);
-                  // TODO generalizar esse switch case, se der tempo
-                  break;
-                default:
-                  break;
                 }
               }
-
               break;
-            case GAME_OVER:
-              // TODO Encerrrar o jogo aqui
             default:
               break;
             }

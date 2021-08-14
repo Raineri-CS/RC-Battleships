@@ -16,7 +16,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   struct sockaddr_in serverAddr;
   struct hostent *host;
   char recvBuffer[256], sendBuffer[256];
-  unsigned char didChoose, playerMove1, bufClr;
+  unsigned char didChoose, playerMove1, bufClr, showMap;
   unsigned int playerMove2, paramAmount;
 
   /* Inicializacoes */
@@ -27,6 +27,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   didChoose = 0;
   lives = 32;
   paramAmount = 0;
+  showMap = 0;
   host = gethostbyname(domain);
 
   /* Protocolo TCP */

@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PORT 9030
+#define DEFAULT_PORT 9030
 // Numero maximo de clientes que o programa vai aceitar de uma so vez SEMPRE
 // DEVE SER PAR
 #define MAX_CLIENTS 2
@@ -28,7 +28,7 @@ int main(int argc, char const *argv[]) {
 
   int masterSocket, addrlen, newSocket, clientSocket[MAX_CLIENTS], activity, i,
       valRead, sd, clientNum, gameStatus[MAX_CLIENTS], tempX, tempY,
-      paramAmount;
+      paramAmount, PORT;
 
   // Valor maximo dos descritores de socket
   int maxSd;
@@ -55,6 +55,13 @@ int main(int argc, char const *argv[]) {
   // refatorar o codigo e mexer com coisas sensiveis
   unsigned int connectedForPlayerGame, isWaiting[MAX_CLIENTS],
       lives[MAX_CLIENTS];
+
+  // Quer dizer que veio uma porta de parametro
+  if (argc == 2) {
+    PORT = atoi(argv[1]);
+  } else {
+    PORT = DEFAULT_PORT;
+  }
 
   clientNum = 0;
   connectedForPlayerGame = 0;
@@ -198,13 +205,14 @@ int main(int argc, char const *argv[]) {
         // Se a operacao que esta vindo eh de fechamento e leitura da mensagem
         // vindo
         if ((valRead = read(sd, buffer, 1024)) == 0) {
-          // Alguem disconectou, printa as informacoes da desconexao na tela
+          // Alguem desconectou, printa as informacoes da desconexao na tela
           getpeername(sd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
-          printf("Hospedeiro desconectou , ip %s , port %d \n",
+          printf("Hospedeiro desconectou , ip %s , porta %d \n",
                  inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
           // Fechar o descritor da socket e liberar espaco no vetor de
           // sockets...
+          // FIXME arrumar a "liberacao" da sala pelo ongoing gameStatus, e variaveis semelhantes
           close(sd);
           // Resetar o status do jogo
           for (int j = 0; j < (MAX_CLIENTS / 2); j++) {

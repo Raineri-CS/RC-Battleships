@@ -263,9 +263,9 @@ int main(int argc, char const *argv[]) {
                                0) != strlen(sendBuffer)) {
                         fprintf(stderr, "Erro ao enviar a mensagem.\n");
                       } else {
-                        printf("A mensagem (%s) foi enviada para o descritor "
+                        printf("A mensagem (IDLE) foi enviada para o descritor "
                                "%d...\n",
-                               sendBuffer, clientSocket[i]);
+                               clientSocket[i]);
                       }
                       // Se adicionou, nao tem merito continuar no loop
                       break;
@@ -284,9 +284,10 @@ int main(int argc, char const *argv[]) {
                                  strlen(sendBuffer), 0) != strlen(sendBuffer)) {
                           fprintf(stderr, "Erro ao enviar a mensagem.\n");
                         } else {
-                          printf("A mensagem (%s) foi enviada para o descritor "
+                          printf("A mensagem (GAME_START) foi enviada para o "
+                                 "descritor "
                                  "%d...\n",
-                                 sendBuffer, *session[j].clientFd[l]);
+                                 *session[j].clientFd[l]);
                         }
                       }
                       printf(
@@ -326,9 +327,10 @@ int main(int argc, char const *argv[]) {
                              0) != strlen(sendBuffer)) {
                       fprintf(stderr, "Erro ao enviar a mensagem.\n");
                     } else {
-                      printf("A mensagem (%s) foi enviada para o descritor "
-                             "%d...\n",
-                             sendBuffer, clientSocket[i]);
+                      printf(
+                          "A mensagem (GAME_WIN) foi enviada para o descritor "
+                          "%d...\n",
+                          clientSocket[i]);
                     }
                   }
                   sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
@@ -337,9 +339,9 @@ int main(int argc, char const *argv[]) {
                            0) != strlen(sendBuffer)) {
                     fprintf(stderr, "Erro ao enviar a mensagem.\n");
                   } else {
-                    printf("A mensagem (%s) foi enviada para o descritor "
+                    printf("A mensagem (GAME_HIT) foi enviada para o descritor "
                            "%d...\n",
-                           sendBuffer, clientSocket[i]);
+                           clientSocket[i]);
                   }
 
                 } else {
@@ -349,9 +351,10 @@ int main(int argc, char const *argv[]) {
                            0) != strlen(sendBuffer)) {
                     fprintf(stderr, "Erro ao enviar a mensagem.\n");
                   } else {
-                    printf("A mensagem (%s) foi enviada para o descritor "
-                           "%d...\n",
-                           sendBuffer, clientSocket[i]);
+                    printf(
+                        "A mensagem (GAME_MISS) foi enviada para o descritor "
+                        "%d...\n",
+                        clientSocket[i]);
                   }
                 }
               } else {
@@ -361,9 +364,10 @@ int main(int argc, char const *argv[]) {
                            0) != strlen(sendBuffer)) {
                     fprintf(stderr, "Erro ao enviar a mensagem.\n");
                   } else {
-                    printf("A mensagem (%s) foi enviada para o descritor "
-                           "%d...\n",
-                           sendBuffer, clientSocket[i]);
+                    printf(
+                        "A mensagem (GAME_LOSE) foi enviada para o descritor "
+                        "%d...\n",
+                        clientSocket[i]);
                   }
                   gameStatus[i] = GAME_OVER;
                 }
@@ -377,7 +381,8 @@ int main(int argc, char const *argv[]) {
                     // Copiar a mensagem para um buffer persistente de indice
                     // igual ao seu no array de clientes
                     strcpy(session[j].persistentBuffer[k], buffer);
-                    printf("A mensagem (%s) foi recebida do descritor %d...\n",session[j].persistentBuffer[k],clientSocket[i]);
+                    printf("A mensagem (%s) foi recebida do descritor %d...\n",
+                           session[j].persistentBuffer[k], clientSocket[i]);
                     // O custo de fazer as coisas sem ser async eh a
                     // complexidade quadratica Verifica se todos os clientes tem
                     // mensagens para enviar
@@ -422,10 +427,10 @@ int main(int argc, char const *argv[]) {
                                0) != strlen(sendBuffer)) {
                         fprintf(stderr, "Erro ao enviar a mensagem.\n");
                       } else {
-                        printf("A mensagem (%s) foi enviada para o "
+                        printf("A mensagem (IDLE) foi enviada para o "
                                "descritor "
                                "%d...\n",
-                               sendBuffer, clientSocket[i]);
+                               clientSocket[i]);
                       }
                     }
                   }

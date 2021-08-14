@@ -184,15 +184,18 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
     }
 
     // Mostra o tabuleiro local
-    printField(tab);
-    printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-    scanf("%c", &playerMove1);
-    scanf("%d", &playerMove2);
-    clear();
-    // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n, FIQUEI
-    // 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
-    bufClr = getchar();
-
+    do {
+      printField(tab);
+      printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
+      scanf("%c", &playerMove1);
+      scanf("%d", &playerMove2);
+      clear();
+      // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
+      // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
+      bufClr = getchar();
+    } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
+    // Representa no tabuleiro local onde foi tentado o tiro
+    tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].localShot = 1;
     sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
     send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
 
@@ -225,30 +228,38 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         case GAME_HIT:
           printf("Voce acertou o adversario!\n");
           // Mostra o tabuleiro local
-          printField(tab);
-          printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-          scanf("%c", &playerMove1);
-          scanf("%d", &playerMove2);
-          clear();
-          // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n, FIQUEI
-          // 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
-          bufClr = getchar();
-
+          do {
+            printField(tab);
+            printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
+            scanf("%c", &playerMove1);
+            scanf("%d", &playerMove2);
+            clear();
+            // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
+            // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
+            bufClr = getchar();
+          } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
+          // Representa no tabuleiro local onde foi tentado o tiro
+          tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].localShot = 1;
+          // Envia o tiro
           sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
           send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
           break;
         case GAME_MISS:
           printf("Voce errou o adversario!\n");
           // Mostra o tabuleiro local
-          printField(tab);
-          printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-          scanf("%c", &playerMove1);
-          scanf("%d", &playerMove2);
-          clear();
-          // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n, FIQUEI
-          // 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
-          bufClr = getchar();
-
+          do {
+            printField(tab);
+            printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
+            scanf("%c", &playerMove1);
+            scanf("%d", &playerMove2);
+            clear();
+            // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
+            // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
+            bufClr = getchar();
+          } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
+          // Representa no tabuleiro local onde foi tentado o tiro
+          tab->field[(playerMove1 - 97)][playerMove2 - 1].localShot = 1;
+          // Envia o tiro
           sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
           send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
           break;
@@ -308,6 +319,7 @@ void init(tabuleiro *tab) {
     for (int j = 0; j < FIELD_SIZE; j++) {
       tab->field[i][j].isOccupied = 0;
       tab->field[i][j].type = WAT;
+      tab->field[i][j].localShot = 0;
     }
 }
 
@@ -497,7 +509,6 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
 
 // Retorna HIT se acertou, 0 se errou
 int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab) {
-  printf("(X : %d Y : %d)\n", x, y);
   if (x > 14 || y > 14)
     return 0;
   if (tab->field[x][y].isOccupied) {
@@ -582,22 +593,82 @@ void printField(tabuleiro *tab) {
     for (unsigned int j = 0; j < 15; j++) {
       switch (tab->field[i][j].type) {
       case SUB:
-        printf("S │");
+        switch (tab->field[i][j].localShot) {
+        case 0:
+          printf("S │");
+          break;
+        case 1:
+          printf("S*│");
+          break;
+        default:
+          printf("S │");
+          break;
+        }
         break;
       case TOR:
-        printf("T │");
+        switch (tab->field[i][j].localShot) {
+        case 0:
+          printf("T │");
+          break;
+        case 1:
+          printf("T*│");
+          break;
+        default:
+          printf("T │");
+          break;
+        }
         break;
       case TAS:
-        printf("N │");
+        switch (tab->field[i][j].localShot) {
+        case 0:
+          printf("N │");
+          break;
+        case 1:
+          printf("N*│");
+          break;
+        default:
+          printf("N │");
+          break;
+        }
         break;
       case AIP:
-        printf("P │");
+        switch (tab->field[i][j].localShot) {
+        case 0:
+          printf("P │");
+          break;
+        case 1:
+          printf("P*│");
+          break;
+        default:
+          printf("P │");
+          break;
+        }
         break;
       case HIT:
-        printf("X │");
+        switch (tab->field[i][j].localShot) {
+        case 0:
+          printf("X │");
+          break;
+        case 1:
+          printf("X*│");
+          break;
+        default:
+          printf("X │");
+          break;
+        }
         break;
       default:
-        printf("  │");
+        switch (tab->field[i][j].localShot) {
+        case 0:
+          printf("  │");
+          break;
+        case 1:
+          printf(" *│");
+          break;
+        default:
+          printf("  │");
+          break;
+        }
         break;
       }
     }

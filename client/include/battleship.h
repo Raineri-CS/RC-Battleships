@@ -43,6 +43,7 @@
 
 typedef struct pieceProto {
   unsigned char isOccupied;
+  unsigned char localShot;
   unsigned char type;
 } piece;
 

@@ -10,13 +10,21 @@ void clear() {
 #endif
 }
 
+void clearStdin(void) {
+  char c;
+  c = 0;
+  while (c != '\n' && c != EOF) {
+    c = getchar();
+  }
+}
+
 int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
              tabuleiro *tab) {
-  int clientSockfd, didRead, tempX, tempY, lives, valRead;
+  int clientSockfd, tempX, tempY, lives, valRead;
   struct sockaddr_in serverAddr;
   struct hostent *host;
   char recvBuffer[256], sendBuffer[256];
-  unsigned char didChoose, playerMove1, bufClr, showMap;
+  unsigned char didChoose, playerMove1, showMap;
   unsigned int playerMove2, paramAmount;
 
   /* Inicializacoes */
@@ -61,7 +69,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
       }
       recvBuffer[valRead] = '\0';
       // Conta a quantidade de parametros da mensagem
-      for (int j = 0; j < strlen(recvBuffer); j++) {
+      for (int j = 0; j < (int)strlen(recvBuffer); j++) {
         if (recvBuffer[j] == ' ') {
           paramAmount++;
         }
@@ -144,17 +152,29 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           break;
         }
       }
-      // Mostra o tabuleiro local
-      printField(tab);
 
-      // Le o movimento do jogador
-      printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-      scanf("%c", &playerMove1);
-      scanf("%d", &playerMove2);
+      do {
+        // Mostra o tabuleiro local
+        if (showMap) {
+          printField(tab);
+        }
+        // Le o movimento do jogador
+        printf(
+            "Informe sua jogada no formato (com espaco) LETRA NUMERO ou um de "
+            "cada vez\n\"M\" sozinho para mapa.\n");
+        fflush(stdin);
+        scanf("%c", &playerMove1);
+        if (playerMove1 == 'M') {
+          showMap = !showMap;
+          clearStdin();
+        }
+      } while (playerMove1 == 'M');
+
+      scanf("%u", &playerMove2);
       clear();
       // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n, FIQUEI 2
       // HORAS PRA ACHAR ESSE BUG, NAO MEXER
-      bufClr = getchar();
+      clearStdin();
 
       // strncpy(sendBuffer, "\0", 256);
       sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
@@ -186,17 +206,30 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
 
     // Mostra o tabuleiro local
     do {
-      printField(tab);
-      printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-      scanf("%c", &playerMove1);
-      scanf("%d", &playerMove2);
+      do {
+        // Mostra o tabuleiro local
+        if (showMap) {
+          clear();
+          printField(tab);
+        }
+        // Le o movimento do jogador
+        printf(
+            "Informe sua jogada no formato (com espaco) LETRA NUMERO ou um de "
+            "cada vez\n\"M\" sozinho para mapa.\n");
+        scanf("%c", &playerMove1);
+        if (playerMove1 == 'M') {
+          showMap = !showMap;
+          clearStdin();
+        }
+      } while (playerMove1 == 'M');
+      scanf("%u", &playerMove2);
       clear();
       // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
       // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
-      bufClr = getchar();
+      clearStdin();
     } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
     // Representa no tabuleiro local onde foi tentado o tiro
-    tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].localShot = 1;
+    tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
     sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
     send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
 
@@ -209,7 +242,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
       recvBuffer[valRead] = '\0';
 
       // Conta a quantidade de parametros da mensagem
-      for (int j = 0; j < strlen(recvBuffer); j++) {
+      for (int j = 0; j < (int)strlen(recvBuffer); j++) {
         if (recvBuffer[j] == ' ') {
           paramAmount++;
         }
@@ -230,17 +263,30 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           printf("Voce acertou o adversario!\n");
           // Mostra o tabuleiro local
           do {
-            printField(tab);
-            printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-            scanf("%c", &playerMove1);
-            scanf("%d", &playerMove2);
+            do {
+              // Mostra o tabuleiro local
+              if (showMap) {
+                clear();
+                printField(tab);
+              }
+              // Le o movimento do jogador
+              printf("Informe sua jogada no formato (com espaco) LETRA NUMERO "
+                     "ou um de "
+                     "cada vez\n\"M\" sozinho para mapa.\n");
+              scanf("%c", &playerMove1);
+              if (playerMove1 == 'M') {
+                showMap = !showMap;
+                clearStdin();
+              }
+            } while (playerMove1 == 'M');
+            scanf("%u", &playerMove2);
             clear();
             // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
             // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
-            bufClr = getchar();
+            clearStdin();
           } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
           // Representa no tabuleiro local onde foi tentado o tiro
-          tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].localShot = 1;
+          tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
           // Envia o tiro
           sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
           send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
@@ -249,17 +295,30 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           printf("Voce errou o adversario!\n");
           // Mostra o tabuleiro local
           do {
-            printField(tab);
-            printf("Informe sua jogada no formato (com espaco) LETRA NUMERO\n");
-            scanf("%c", &playerMove1);
-            scanf("%d", &playerMove2);
+            do {
+              // Mostra o tabuleiro local
+              if (showMap) {
+                clear();
+                printField(tab);
+              }
+              // Le o movimento do jogador
+              printf("Informe sua jogada no formato (com espaco) LETRA NUMERO "
+                     "ou um de "
+                     "cada vez\n\"M\" sozinho para mapa.\n");
+              scanf("%c", &playerMove1);
+              if (playerMove1 == 'M') {
+                showMap = !showMap;
+                clearStdin();
+              }
+            } while (playerMove1 == 'M');
+            scanf("%u", &playerMove2);
             clear();
             // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
             // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
-            bufClr = getchar();
+            clearStdin();
           } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
           // Representa no tabuleiro local onde foi tentado o tiro
-          tab->field[(playerMove1 - 97)][playerMove2 - 1].localShot = 1;
+          tab->field[(playerMove1 - 97)][playerMove2 - 1].clientShot = 1;
           // Envia o tiro
           sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
           send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
@@ -320,7 +379,8 @@ void init(tabuleiro *tab) {
     for (int j = 0; j < FIELD_SIZE; j++) {
       tab->field[i][j].isOccupied = 0;
       tab->field[i][j].type = WAT;
-      tab->field[i][j].localShot = 0;
+      tab->field[i][j].clientShot = 0;
+      tab->field[i][j].serverShot = 0;
     }
 }
 
@@ -512,6 +572,8 @@ int addToField(unsigned int x1, unsigned int y1, unsigned int x2,
 int fireProjectile(unsigned int x, unsigned int y, tabuleiro *tab) {
   if (x > 14 || y > 14)
     return 0;
+  // A mensagem vinda do servidor tentou atirar no espaco x y
+  tab->field[x][y].serverShot = 1;
   if (tab->field[x][y].isOccupied) {
     tab->field[x][y].type = HIT;
     tab->field[x][y].isOccupied = 0;
@@ -594,81 +656,59 @@ void printField(tabuleiro *tab) {
     for (unsigned int j = 0; j < 15; j++) {
       switch (tab->field[i][j].type) {
       case SUB:
-        switch (tab->field[i][j].localShot) {
-        case 0:
-          printf("S │");
-          break;
-        case 1:
-          printf("S*│");
-          break;
-        default:
-          printf("S │");
-          break;
+        // TODO guardar tiros do adversario assim como os seus, e mostra-los por
+        // simbolos diferentes
+        if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
+          printf("S@│");
+        } else {
+          // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
+          printf("S%c│", '*' * tab->field[i][j].clientShot |
+                             'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case TOR:
-        switch (tab->field[i][j].localShot) {
-        case 0:
-          printf("T │");
-          break;
-        case 1:
-          printf("T*│");
-          break;
-        default:
-          printf("T │");
-          break;
+        if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
+          printf("T@│");
+        } else {
+          // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
+          printf("T%c│", '*' * tab->field[i][j].clientShot |
+                             'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case TAS:
-        switch (tab->field[i][j].localShot) {
-        case 0:
-          printf("N │");
-          break;
-        case 1:
-          printf("N*│");
-          break;
-        default:
-          printf("N │");
-          break;
+        if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
+          printf("N@│");
+        } else {
+          // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
+          printf("N%c│", '*' * tab->field[i][j].clientShot |
+                             'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case AIP:
-        switch (tab->field[i][j].localShot) {
-        case 0:
-          printf("P │");
-          break;
-        case 1:
-          printf("P*│");
-          break;
-        default:
-          printf("P │");
-          break;
+        if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
+          printf("P@│");
+        } else {
+          // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
+          printf("P%c│", '*' * tab->field[i][j].clientShot |
+                             'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case HIT:
-        switch (tab->field[i][j].localShot) {
-        case 0:
-          printf("X │");
-          break;
-        case 1:
-          printf("X*│");
-          break;
-        default:
-          printf("X │");
-          break;
+        if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
+          printf("X@│");
+        } else {
+          // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
+          printf("X%c│", '*' * tab->field[i][j].clientShot |
+                             'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       default:
-        switch (tab->field[i][j].localShot) {
-        case 0:
-          printf("  │");
-          break;
-        case 1:
-          printf(" *│");
-          break;
-        default:
-          printf("  │");
-          break;
+        if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
+          printf(" @│");
+        } else {
+          // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
+          printf(" %c│", '*' * tab->field[i][j].clientShot |
+                             'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       }

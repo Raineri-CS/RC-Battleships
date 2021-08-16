@@ -43,7 +43,8 @@
 
 typedef struct pieceProto {
   unsigned char isOccupied;
-  unsigned char localShot;
+  unsigned char clientShot;
+  unsigned char serverShot;
   unsigned char type;
 } piece;
 

@@ -28,7 +28,7 @@ int main(int argc, char const *argv[]) {
 
   int masterSocket, addrlen, newSocket, clientSocket[MAX_CLIENTS], activity, i,
       valRead, sd, clientNum, gameStatus[MAX_CLIENTS], tempX, tempY,
-      paramAmount, PORT;
+      PORT;
 
   // Valor maximo dos descritores de socket
   int maxSd;
@@ -37,14 +37,10 @@ int main(int argc, char const *argv[]) {
 
   struct sockaddr_in address;
 
-  char buffer[1025], sendBuffer[128],
-      persistentBuffer[MAX_CLIENTS][128]; // Buffer de dados
+  char buffer[1025], sendBuffer[128]; // Buffer de dados
 
   // Conjunto de descritores de socket para a multiplexacao
   fd_set readfds;
-
-  // a message
-  char *message = "Battleships - Lucas Roberto Raineri Oliveira - 38346\r\n";
 
   // Os campos do server caso todos os clientes queiram jogar contra a CPU
   tabuleiro serverField[MAX_CLIENTS];
@@ -53,8 +49,7 @@ int main(int argc, char const *argv[]) {
   // A ideia inicial era connectedForPlayerGame ser um vetor para escalar em N
   // jogadores, porem, restricao de tempo isWaiting eh gambiarra pra nao ter que
   // refatorar o codigo e mexer com coisas sensiveis
-  unsigned int connectedForPlayerGame, isWaiting[MAX_CLIENTS],
-      lives[MAX_CLIENTS];
+  unsigned int lives[MAX_CLIENTS];
 
   // Quer dizer que veio uma porta de parametro
   if (argc == 2) {
@@ -64,8 +59,6 @@ int main(int argc, char const *argv[]) {
   }
 
   clientNum = 0;
-  connectedForPlayerGame = 0;
-  paramAmount = 0;
   // Seed do gerador de numeros aleatorios
   srand((time_t)NULL);
 
@@ -73,7 +66,6 @@ int main(int argc, char const *argv[]) {
   for (i = 0; i < MAX_CLIENTS; i++) {
     init(&serverField[i]);
     lives[i] = 32;
-    isWaiting[i] = 0;
     gameStatus[i] = 0;
     clientSocket[i] = 0;
   }
@@ -212,13 +204,15 @@ int main(int argc, char const *argv[]) {
 
           // Fechar o descritor da socket e liberar espaco no vetor de
           // sockets...
-          // FIXME arrumar a "liberacao" da sala pelo ongoing gameStatus, e variaveis semelhantes
           close(sd);
           // Resetar o status do jogo
           for (int j = 0; j < (MAX_CLIENTS / 2); j++) {
             for (int l = 0; l < MAX_CLIENTS; l++) {
               if (*session[j].clientFd[l] == clientSocket[l]) {
                 gameStatus[l] = 0;
+                session[j].clientFd[l] = 0;
+                session[j].isOngoing = 0;
+                session[j].areClientsReady = 0;
               }
             }
           }
@@ -228,8 +222,6 @@ int main(int argc, char const *argv[]) {
         }
         // A troca de mensagens vai ser aqui
         else {
-          // Usado no PvP
-          paramAmount = 0;
           // Como as mensagens que vem nao tem o caractere nulo pra terminar,
           // adicionar
           buffer[valRead] = '\0';
@@ -268,7 +260,7 @@ int main(int argc, char const *argv[]) {
                       // para this->socket == IDLE
                       sprintf(sendBuffer, "%c ", IDLE + '0');
                       if (send(clientSocket[i], sendBuffer, strlen(sendBuffer),
-                               0) != strlen(sendBuffer)) {
+                               0) != (long int)strlen(sendBuffer)) {
                         fprintf(stderr, "Erro ao enviar a mensagem.\n");
                       } else {
                         printf("A mensagem (IDLE) foi enviada para o descritor "
@@ -289,7 +281,8 @@ int main(int argc, char const *argv[]) {
                       // clientes, mandandoo a flag GAME_START
                       for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
                         if (send(*session[j].clientFd[l], sendBuffer,
-                                 strlen(sendBuffer), 0) != strlen(sendBuffer)) {
+                                 strlen(sendBuffer),
+                                 0) != (long int)strlen(sendBuffer)) {
                           fprintf(stderr, "Erro ao enviar a mensagem.\n");
                         } else {
                           printf("A mensagem (GAME_START) foi enviada para o "
@@ -332,7 +325,7 @@ int main(int argc, char const *argv[]) {
                     // Setta aqui o que vai ser ENVIADO pro cliente
                     sprintf(sendBuffer, "%c ", GAME_WIN + '0');
                     if (send(clientSocket[i], sendBuffer, strlen(sendBuffer),
-                             0) != strlen(sendBuffer)) {
+                             0) != (long int)strlen(sendBuffer)) {
                       fprintf(stderr, "Erro ao enviar a mensagem.\n");
                     } else {
                       printf(
@@ -344,7 +337,7 @@ int main(int argc, char const *argv[]) {
                   sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
                           rand() % 15);
                   if (send(clientSocket[i], sendBuffer, strlen(sendBuffer),
-                           0) != strlen(sendBuffer)) {
+                           0) != (long int)strlen(sendBuffer)) {
                     fprintf(stderr, "Erro ao enviar a mensagem.\n");
                   } else {
                     printf("A mensagem (GAME_HIT) foi enviada para o descritor "
@@ -356,7 +349,7 @@ int main(int argc, char const *argv[]) {
                   sprintf(sendBuffer, "%c %d %d ", GAME_MISS + '0', rand() % 15,
                           rand() % 15);
                   if (send(clientSocket[i], sendBuffer, strlen(sendBuffer),
-                           0) != strlen(sendBuffer)) {
+                           0) != (long int)strlen(sendBuffer)) {
                     fprintf(stderr, "Erro ao enviar a mensagem.\n");
                   } else {
                     printf(
@@ -369,7 +362,7 @@ int main(int argc, char const *argv[]) {
                 if (buffer[0] == GAME_WIN || buffer[0] == GAME_LOSE) {
                   sprintf(sendBuffer, "%c ", GAME_LOSE + '0');
                   if (send(clientSocket[i], sendBuffer, strlen(sendBuffer),
-                           0) != strlen(sendBuffer)) {
+                           0) != (long int)strlen(sendBuffer)) {
                     fprintf(stderr, "Erro ao enviar a mensagem.\n");
                   } else {
                     printf(
@@ -413,7 +406,7 @@ int main(int argc, char const *argv[]) {
                           if (l != m) {
                             if (send(*session[j].clientFd[m], sendBuffer,
                                      strlen(sendBuffer),
-                                     0) != strlen(sendBuffer)) {
+                                     0) != (long int)strlen(sendBuffer)) {
                               fprintf(stderr, "Erro ao enviar a mensagem.\n");
                             } else {
                               printf("A mensagem (%s) foi enviada para o "
@@ -432,7 +425,7 @@ int main(int argc, char const *argv[]) {
                       // fazer seu movimento
                       sprintf(sendBuffer, "%c ", IDLE + '0');
                       if (send(clientSocket[i], sendBuffer, strlen(sendBuffer),
-                               0) != strlen(sendBuffer)) {
+                               0) != (long int)strlen(sendBuffer)) {
                         fprintf(stderr, "Erro ao enviar a mensagem.\n");
                       } else {
                         printf("A mensagem (IDLE) foi enviada para o "

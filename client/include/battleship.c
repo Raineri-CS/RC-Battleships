@@ -1,5 +1,13 @@
 #include "battleship.h"
 
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN "\x1b[36m"
+#define ANSI_COLOR_RESET "\x1b[0m"
+
 void clear() {
 #ifdef __linux__
   system("clear");
@@ -36,6 +44,8 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   lives = 32;
   paramAmount = 0;
   showMap = 0;
+  playerMove1 = 0;
+  playerMove2 = 0;
   host = gethostbyname(domain);
 
   /* Protocolo TCP */
@@ -57,102 +67,13 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
 
   /* Finalmente, o loop do jogo */
   switch (gameMode) {
+  // TODO refatorar
   case COM:
     // Envia a mensagem que se deseja jogar no modo COM
     sendBuffer[0] = COM + '0';
     send(clientSockfd, &sendBuffer[0], 1, 0);
-    for (;;) {
-      paramAmount = 0;
-      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
-        fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
-        return -1;
-      }
-      recvBuffer[valRead] = '\0';
-      // Conta a quantidade de parametros da mensagem
-      for (int j = 0; j < (int)strlen(recvBuffer); j++) {
-        if (recvBuffer[j] == ' ') {
-          paramAmount++;
-        }
-      }
 
-      // Quer dizer que ele leu um ataque
-      if (paramAmount == 2) {
-        sscanf(recvBuffer, "%d %d", &tempX, &tempY);
-        if (fireProjectile(tempX, tempY, tab) == HIT) {
-          lives--;
-          printf("O adversario te acertou!\n");
-        } else {
-          printf("O adversario errou!\n");
-        }
-        // Se a quantidade de vidas dessa estrutura...
-        if (lives <= 0) {
-          // Setta aqui o que vai ser ENVIADO pro cliente
-          sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
-        }
-        // Se as vidas nao acabaram, continua o jogo...
-      } else if (paramAmount == 3) {
-        // Quer dizer que as mensagens foram concatenadas
-        // A primeira sempre vai ser o STATUS, e a segunda as COORDENADAS
-        sscanf(recvBuffer, "%c %d %d", &recvBuffer[0], &tempX, &tempY);
-        switch (atoi(&recvBuffer[0])) {
-        case GAME_HIT:
-          printf("Voce acertou o adversario!\n");
-          break;
-        case GAME_MISS:
-          printf("Voce errou o adversario!\n");
-          break;
-        case GAME_WIN:
-          printf("Parabens, voce ganhou o jogo!\n");
-          close(clientSockfd);
-          return 0;
-          break;
-        case GAME_OVER:
-        case GAME_LOSE:
-          printf("Que pena! Voce perdeu o jogo.\n");
-          close(clientSockfd);
-          return 0;
-          break;
-        default:
-          break;
-        }
-        if (fireProjectile(tempX, tempY, tab) == HIT) {
-          lives--;
-          printf("O adversario te acertou!\n");
-        } else {
-          printf("O adversario errou!\n");
-        }
-        // Se a quantidade de vidas dessa estrutura...
-        if (lives <= 0) {
-          // Setta aqui o que vai ser ENVIADO pro cliente
-          sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
-        }
-        // Se as vidas nao acabaram, continua o jogo...
-      } else {
-        switch (atoi(&recvBuffer[0])) {
-        case GAME_HIT:
-          printf("Voce acertou o adversario!\n");
-          break;
-        case GAME_MISS:
-          printf("Voce errou o adversario!\n");
-          break;
-        case GAME_WIN:
-          printf("Parabens, voce ganhou o jogo!\n");
-          close(clientSockfd);
-          return 0;
-          break;
-        case GAME_OVER:
-        case GAME_LOSE:
-          printf("Que pena! Voce perdeu o jogo.\n");
-          close(clientSockfd);
-          return 0;
-          break;
-        default:
-          break;
-        }
-      }
-
+    do {
       do {
         // Mostra o tabuleiro local
         if (showMap) {
@@ -162,23 +83,120 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         printf(
             "Informe sua jogada no formato (com espaco) LETRA NUMERO ou um de "
             "cada vez\n\"M\" sozinho para mapa.\n");
-        fflush(stdin);
         scanf("%c", &playerMove1);
         if (playerMove1 == 'M') {
           showMap = !showMap;
           clearStdin();
         }
       } while (playerMove1 == 'M');
-
       scanf("%u", &playerMove2);
       clear();
-      // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n, FIQUEI 2
-      // HORAS PRA ACHAR ESSE BUG, NAO MEXER
+      // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
+      // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
       clearStdin();
+    } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
+    // Representa no tabuleiro local onde foi tentado o tiro
+    tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
+    sprintf(sendBuffer, "%c %d %d ", GAME_START + '0', (playerMove1 - 97),
+            playerMove2 - 1);
+    send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
 
-      // strncpy(sendBuffer, "\0", 256);
-      sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
-      send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+    for (;;) {
+      paramAmount = 0;
+      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
+        fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
+        return -1;
+      }
+      recvBuffer[valRead] = '\0';
+
+      // Conta a quantidade de parametros da mensagem
+      for (int j = 0; j < valRead; j++) {
+        if (recvBuffer[j] == ' ') {
+          paramAmount++;
+        }
+      }
+
+      switch (paramAmount) {
+      case 3:
+        switch (atoi(&recvBuffer[0])) {
+        case IDLE:
+          printf("Esperando adversario...\n");
+          break;
+        case GAME_WAIT:
+        case GAME_MISS:
+        case GAME_HIT:
+          if (atoi(&recvBuffer[0]) == GAME_HIT) {
+            printf("Voce acertou o adversario!\n");
+          } else {
+            printf("Voce errou o adversario!\n");
+          }
+        case GAME_START:
+          sscanf(recvBuffer, "%c %d %d", &recvBuffer[0], &tempX, &tempY);
+
+          if (fireProjectile(tempX, tempY, tab) == HIT) {
+            lives--;
+            sprintf(sendBuffer, "%c ", GAME_HIT + '0');
+            printf("O adversario te acertou!\n");
+          } else {
+            sprintf(sendBuffer, "%c ", GAME_MISS + '0');
+            printf("O adversario errou!\n");
+          }
+          // Se a quantidade de vidas dessa estrutura...
+          if (lives <= 0) {
+            // Setta aqui o que vai ser ENVIADO pro cliente
+            sprintf(sendBuffer, "%c ", GAME_WIN + '0');
+            send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+            recvBuffer[0] = GAME_OVER + '0';
+          }
+          // Se as vidas nao acabaram, continua o jogo...
+          do {
+            do {
+              // Mostra o tabuleiro local
+              if (showMap) {
+                printField(tab);
+              }
+              // Le o movimento do jogador
+              printf("Informe sua jogada no formato (com espaco) LETRA NUMERO "
+                     "ou um de "
+                     "cada vez\n\"M\" sozinho para mapa.\n");
+              scanf("%c", &playerMove1);
+              if (playerMove1 == 'M') {
+                showMap = !showMap;
+                clearStdin();
+              }
+            } while (playerMove1 == 'M');
+            scanf("%u", &playerMove2);
+            clear();
+            // ESSE CARA LIMPA A PORRA DO BUFFER DE INPUT QUE VEM COM O \n,
+            // FIQUEI 2 HORAS PRA ACHAR ESSE BUG, NAO MEXER
+            clearStdin();
+          } while ((playerMove1 - 97) > 14 || playerMove2 - 1 > 14);
+          // Representa no tabuleiro local onde foi tentado o tiro
+          tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
+          // Envia o tiro
+          sprintf(sendBuffer, "%c %d %d ", sendBuffer[0], (playerMove1 - 97),
+                  playerMove2 - 1);
+          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+          break;
+
+        case GAME_WIN:
+          printf("Parabens, voce ganhou o jogo!\n");
+          close(clientSockfd);
+          return 0;
+          break;
+        case GAME_OVER:
+        case GAME_LOSE:
+          printf("Que pena! Voce perdeu o jogo.\n");
+          close(clientSockfd);
+          return 0;
+          break;
+        default:
+          break;
+        }
+        break;
+      default:
+        break;
+      }
     }
     break;
   case PLAYER:
@@ -204,12 +222,10 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
       }
     }
 
-    // Mostra o tabuleiro local
     do {
       do {
         // Mostra o tabuleiro local
         if (showMap) {
-          clear();
           printField(tab);
         }
         // Le o movimento do jogador
@@ -648,67 +664,74 @@ int verifyFileIntegrity(FILE *fd, tabuleiro *tab) {
 }
 
 void printField(tabuleiro *tab) {
-  printf("\t1  2  3  4  5  6  7  8  9  10 11 12 13 14 "
-         "15\n\t┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐\n");
+  printf(ANSI_COLOR_GREEN
+         "\t 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15" ANSI_COLOR_CYAN
+         "\n\t┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐\n");
   for (unsigned int i = 0; i < 15; i++) {
     // Letras do lado do tabuleiro
-    printf("%c \t│", 97 + i);
+    printf(ANSI_COLOR_GREEN "%c" ANSI_COLOR_CYAN " \t│", 97 + i);
     for (unsigned int j = 0; j < 15; j++) {
       switch (tab->field[i][j].type) {
       case SUB:
         // TODO guardar tiros do adversario assim como os seus, e mostra-los por
         // simbolos diferentes
         if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
-          printf("S@│");
+          printf(ANSI_COLOR_GREEN "S" ANSI_COLOR_RED "@" ANSI_COLOR_CYAN "│");
         } else {
           // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
-          printf("S%c│", '*' * tab->field[i][j].clientShot |
-                             'o' * tab->field[i][j].serverShot | ' ');
+          printf(ANSI_COLOR_GREEN "S" ANSI_COLOR_RED "%c" ANSI_COLOR_CYAN "│",
+                 '*' * tab->field[i][j].clientShot |
+                     'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case TOR:
         if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
-          printf("T@│");
+          printf(ANSI_COLOR_GREEN "T" ANSI_COLOR_RED "@" ANSI_COLOR_CYAN "│");
         } else {
           // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
-          printf("T%c│", '*' * tab->field[i][j].clientShot |
-                             'o' * tab->field[i][j].serverShot | ' ');
+          printf(ANSI_COLOR_GREEN "T" ANSI_COLOR_RED "%c" ANSI_COLOR_CYAN "│",
+                 '*' * tab->field[i][j].clientShot |
+                     'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case TAS:
         if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
-          printf("N@│");
+          printf(ANSI_COLOR_GREEN "N" ANSI_COLOR_RED "@" ANSI_COLOR_CYAN "│");
         } else {
           // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
-          printf("N%c│", '*' * tab->field[i][j].clientShot |
-                             'o' * tab->field[i][j].serverShot | ' ');
+          printf(ANSI_COLOR_GREEN "N" ANSI_COLOR_RED "%c" ANSI_COLOR_CYAN "│",
+                 '*' * tab->field[i][j].clientShot |
+                     'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case AIP:
         if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
-          printf("P@│");
+          printf(ANSI_COLOR_GREEN "P" ANSI_COLOR_RED "@" ANSI_COLOR_CYAN "│");
         } else {
           // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
-          printf("P%c│", '*' * tab->field[i][j].clientShot |
-                             'o' * tab->field[i][j].serverShot | ' ');
+          printf(ANSI_COLOR_GREEN "P" ANSI_COLOR_RED "%c" ANSI_COLOR_CYAN "│",
+                 '*' * tab->field[i][j].clientShot |
+                     'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       case HIT:
         if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
-          printf("X@│");
+          printf(ANSI_COLOR_GREEN "X" ANSI_COLOR_RED "@" ANSI_COLOR_CYAN "│");
         } else {
           // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
-          printf("X%c│", '*' * tab->field[i][j].clientShot |
-                             'o' * tab->field[i][j].serverShot | ' ');
+          printf(ANSI_COLOR_GREEN "X" ANSI_COLOR_RED "%c" ANSI_COLOR_CYAN "│",
+                 '*' * tab->field[i][j].clientShot |
+                     'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       default:
         if (tab->field[i][j].clientShot && tab->field[i][j].serverShot) {
-          printf(" @│");
+          printf(" " ANSI_COLOR_RED "@" ANSI_COLOR_CYAN "│");
         } else {
           // Bit do 32 (o 5o bit) esta levantado nas tres comparacoes
-          printf(" %c│", '*' * tab->field[i][j].clientShot |
-                             'o' * tab->field[i][j].serverShot | ' ');
+          printf(" " ANSI_COLOR_RED "%c" ANSI_COLOR_CYAN "│",
+                 '*' * tab->field[i][j].clientShot |
+                     'o' * tab->field[i][j].serverShot | ' ');
         }
         break;
       }
@@ -717,9 +740,12 @@ void printField(tabuleiro *tab) {
       printf("\n");
       break;
     }
-    printf("\n\t├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤\n");
+    printf(ANSI_COLOR_CYAN
+           "\n\t├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤\n");
   }
-  printf("\t└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘\n\n");
+  printf(
+      ANSI_COLOR_CYAN
+      "\t└──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘\n\n" ANSI_COLOR_RESET);
 }
 
 void randomizePieces(tabuleiro *tab) {

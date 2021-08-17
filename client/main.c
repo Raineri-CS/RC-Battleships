@@ -33,6 +33,7 @@ int main(int argc, char const *argv[]) {
     do {
       printf("Informe contra quem quer jogar\n1 - COM\n2 - PLAYER\n");
       scanf("%ud", &opc);
+      getchar();
     } while (opc <= 0 || opc > 2);
     switch (opc) {
     case COM:

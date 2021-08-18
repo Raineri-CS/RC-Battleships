@@ -40,6 +40,7 @@
 #define GAME_MISS 7
 #define GAME_OVER 8
 #define GAME_WAIT 9
+#define SERVER_FORCE_DISCONNECT 666
 
 typedef struct pieceProto {
   unsigned char isOccupied;

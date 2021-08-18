@@ -136,7 +136,16 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           if (fireProjectile(tempX, tempY, tab) == HIT) {
             lives--;
             sprintf(sendBuffer, "%c ", GAME_HIT + '0');
-            printf("O adversario te acertou!\n");
+            // Se a quantidade de vidas dessa estrutura...
+            if (lives <= 0) {
+              // Setta aqui o que vai ser ENVIADO pro cliente
+              sprintf(sendBuffer, "%c ", GAME_WIN + '0');
+              send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+              recvBuffer[0] = GAME_OVER + '0';
+            } else {
+              printf("O adversario te acertou!\n");
+            }
+            // Se as vidas nao acabaram, continua o jogo...
           } else {
             sprintf(sendBuffer, "%c ", GAME_MISS + '0');
             printf("O adversario errou!\n");
@@ -190,6 +199,10 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           close(clientSockfd);
           return 0;
           break;
+        case SERVER_FORCE_DISCONNECT:
+          printf("Voce foi desconectado do servidor!\n");
+          close(clientSockfd);
+          return 0;
         default:
           break;
         }
@@ -263,8 +276,9 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           paramAmount++;
         }
       }
-
-      // Quer dizer que ele leu um ataque do primeiro TURNO
+      // FIXME broken pipe porque eu termino o jogo antes do servidor servir de
+      // relay pros comandos de ifm de partida Quer dizer que ele leu um ataque
+      // do primeiro TURNO
 
       switch (paramAmount) {
       case 1:
@@ -272,6 +286,10 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         case IDLE:
           printf("Esperando adversario...\n");
           break;
+        case SERVER_FORCE_DISCONNECT:
+          printf("Voce foi desconectado do servidor.\n");
+          close(clientSockfd);
+          return 0;
         case GAME_WAIT:
         case GAME_START:
           break;
@@ -360,21 +378,25 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         if (fireProjectile(tempX, tempY, tab) == HIT) {
           lives--;
           sprintf(sendBuffer, "%c ", GAME_HIT + '0');
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
-          printf("O adversario te acertou!\n");
+          // Se a quantidade de vidas dessa estrutura...
+          if (lives <= 0) {
+            // Setta aqui o que vai ser ENVIADO pro cliente
+            sprintf(sendBuffer, "%c ", GAME_WIN + '0');
+            send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+            recvBuffer[0] = GAME_OVER + '0';
+            printf("Que pena, voce perdeu!\n");
+            close(clientSockfd);
+            return 0;
+          } else {
+            send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+            printf("O adversario te acertou!\n");
+          }
+          // Se as vidas nao acabaram, continua o jogo...
         } else {
           sprintf(sendBuffer, "%c ", GAME_MISS + '0');
           send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
           printf("O adversario errou!\n");
         }
-        // Se a quantidade de vidas dessa estrutura...
-        if (lives <= 0) {
-          // Setta aqui o que vai ser ENVIADO pro cliente
-          sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
-          recvBuffer[0] = GAME_OVER + '0';
-        }
-        // Se as vidas nao acabaram, continua o jogo...
 
         break;
       default:

@@ -9,8 +9,8 @@ int endGameSession(gameSession *this, int *status, int *clients) {
   addrlen = 0;
 
   // Fecha os descritores de todas as sockets
-  for (int i = 0; i < MAX_PER_GAME_SESSION; i++) {
-    if ((found = contains(*this->clientFd[i], clients)) != -1) {
+  for (int index = 0; index < MAX_PER_GAME_SESSION; index++) {
+    if ((found = contains(*this->clientFd[index], clients)) != -1) {
       getpeername(clients[found], (struct sockaddr *)&address,
                   (socklen_t *)&addrlen);
       printf("Cliente encontrado em uma gameSession fechando, desconectando %s "
@@ -24,7 +24,7 @@ int endGameSession(gameSession *this, int *status, int *clients) {
         printf(
             "Mensagem (SERVER_FORCE_DISCONNECT) enviada, fechando socket...\n");
         status[found] = 0;
-        this->clientFd[i] = 0;
+        this->clientFd[index] = 0;
         // TODO verificar se essa eh a melhor opcao
         // close(clients[found]);
         clients[found] = 0;
@@ -42,21 +42,22 @@ int endGameSession(gameSession *this, int *status, int *clients) {
 }
 
 int contains(int socketDescriptor, int *clientSockets) {
-  for (int i = 0; i < MAX_CLIENTS; i++)
-    if (socketDescriptor == clientSockets[i])
-      return i;
+  for (int index = 0; index < MAX_CLIENTS; index++)
+    if (socketDescriptor == clientSockets[index])
+      return index;
   return -1;
 }
 
 void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
-                    int *gameStatus, char *buffer, int *client, int index) {
+                    int *gameStatus, char *buffer, int *clientArray,
+                    int index) {
   char sendBuffer[32];
   switch (atoi(&buffer[0])) {
   case COM:
     // O jogador quer jogar contra a maquina
     // Inicializar o tabuleiro do servidor
     randomizePieces(serverField);
-    gameStatus[index] = COM;
+    *(gameStatus + index) = COM;
     break;
   case PLAYER:
     // Caso escolha jogar contra outro jogador, usar a gameSession
@@ -70,38 +71,38 @@ void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
     for (int j = 0; j < (MAX_CLIENTS / 2); j++) {
       // Se a sessao nao estiver cheia, adicionar this cliente na
       // sessao
-      if (!sessionList[j].isOngoing) {
+      if (!(sessionList + j)->isOngoing) {
         for (int k = 0; k < MAX_PER_GAME_SESSION; k++) {
           // Se o pointer do cliente estiver vazio, quer dizer que a
           // "cadeira" dele pode ser ocupada
-          if (sessionList[j].clientFd[k] == 0) {
-            // sd eh o client socket atual, mas ele nao eh persistente
-            sessionList[j].clientFd[k] = client;
+          if ((sessionList + j)->clientFd[k] == 0) {
+            // *client eh o client socket atual, mas ele nao eh persistente
+            (sessionList + j)->clientFd[k] = (clientArray + index);
             // Esse cara vem por fora, detectando as mensagens, entao
             // para this->socket == IDLE
             sprintf(sendBuffer, "%c ", IDLE + '0');
-            if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
-                (long int)strlen(sendBuffer)) {
+            if (send(*(clientArray + index), sendBuffer, strlen(sendBuffer),
+                     0) != (long int)strlen(sendBuffer)) {
               fprintf(stderr, "Erro ao enviar a mensagem em selectGameMode.\n");
             } else {
               printf("A mensagem (IDLE) foi enviada para o descritor "
                      "%d...\n",
-                     *client);
+                     *(clientArray + index));
             }
             // Se adicionou, nao tem merito continuar no loop
             break;
-          } else if (sessionList[j].clientFd[k] != 0 &&
+          } else if ((sessionList + j)->clientFd[k] != 0 &&
                      k + 2 == MAX_PER_GAME_SESSION) {
             // Essa parte eh para nao acontecer um deadlock em que os
             // dois estao no estado IDLE
             // Simula um bool
-            sessionList[j].isOngoing = 1;
-            sessionList[j].clientFd[k + 1] = client;
+            (sessionList + j)->isOngoing = 1;
+            (sessionList + j)->clientFd[k + 1] = (clientArray + index);
             sprintf(sendBuffer, "%c ", GAME_START + '0');
             // Como teoricamente a sala esta cheia, percorrer todos os
             // clientes, mandandoo a flag GAME_START
             for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
-              if (send(*sessionList[j].clientFd[l], sendBuffer,
+              if (send(*(sessionList + j)->clientFd[l], sendBuffer,
                        strlen(sendBuffer), 0) != (long int)strlen(sendBuffer)) {
                 fprintf(stderr,
                         "Erro ao enviar a mensagem em selectGameMode.\n");
@@ -109,16 +110,18 @@ void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
                 printf("A mensagem (GAME_START) foi enviada para o "
                        "descritor "
                        "%d...\n",
-                       *sessionList[j].clientFd[l]);
+                       *(sessionList + j)->clientFd[l]);
               }
             }
             printf("Sessao de jogo iniciando para a gameSession %d...\n", j);
 
             // Tem que settar o gameStatus de todos os clientes
             // participantes para o modo de jogo PLAYER
-            for (int l = 0; l < MAX_CLIENTS; l++) {
-              if (*sessionList[j].clientFd[l] == client[l]) {
-                gameStatus[l] = PLAYER;
+            for (int d = 0; d < MAX_PER_GAME_SESSION; d++) {
+              for (int l = 0; l < MAX_CLIENTS; l++) {
+                if (*(sessionList + j)->clientFd[d] == *(clientArray + l)) {
+                  *(gameStatus + l) = PLAYER;
+                }
               }
             }
 
@@ -134,4 +137,236 @@ void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
   }
 }
 
+// TODO test this shit
+void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
+                     int *gameStatus, char *buffer, int *client,
+                     unsigned int *lives) {
+  char sendBuffer[32];
+  int paramAmount, valRead, tempX, tempY, addrlen;
+  struct sockaddr_in address;
 
+  paramAmount = 0;
+  valRead = strlen(buffer);
+  tempX = 0;
+  tempY = 0;
+  addrlen = 0;
+
+  switch (*gameStatus) {
+  case COM:
+    paramAmount = 0;
+    for (int c = 0; c < valRead; c++) {
+      if (buffer[c] == ' ') {
+        paramAmount++;
+      }
+    }
+    switch (paramAmount) {
+    case 3:
+      sscanf(buffer, "%c %d %d", &buffer[0], &tempX, &tempY);
+
+      if (fireProjectile(tempX, tempY, serverField) == HIT) {
+        *lives -= 1;
+        // Se a quantidade de vidas dessa estrutura...
+        if (lives <= 0) {
+          // Setta aqui o que vai ser ENVIADO pro cliente
+          sprintf(sendBuffer, "%c %d %d ", GAME_WIN + '0', 0, 0);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        }
+        // Se as vidas nao acabaram, continua o jogo...
+        switch (atoi(&buffer[0])) {
+        case GAME_START:
+          sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
+                  rand() % 15);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        case GAME_HIT:
+          sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
+                  rand() % 15);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        case GAME_MISS:
+          sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
+                  rand() % 15);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        case GAME_WIN:
+        case GAME_LOSE:
+          // Desconecta o peer mesmo antes do peer se desconectar,
+          // pois o jogo acabou
+          printf("O jogo contra o servidor do cliente %d acabou, "
+                 "desconectando...\n",
+                 *client);
+          getpeername(*client, (struct sockaddr *)&address,
+                      (socklen_t *)&addrlen);
+          printf("Hospedeiro desconectou , ip %s , porta %d \n",
+                 inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+          sprintf(sendBuffer, "%c 0 0 ", SERVER_FORCE_DISCONNECT + '0');
+          send(*client, sendBuffer, strlen(sendBuffer), 0);
+
+          break;
+        default:
+          break;
+        }
+      } else {
+        // Aqui o cliente errou
+        switch (atoi(&buffer[0])) {
+        case GAME_START:
+          sprintf(sendBuffer, "%c %d %d ", GAME_HIT + '0', rand() % 15,
+                  rand() % 15);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        case GAME_HIT:
+          sprintf(sendBuffer, "%c %d %d ", GAME_MISS + '0', rand() % 15,
+                  rand() % 15);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        case GAME_MISS:
+          sprintf(sendBuffer, "%c %d %d ", GAME_MISS + '0', rand() % 15,
+                  rand() % 15);
+          if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar a mensagem.\n");
+          } else {
+            printf("A mensagem (%s) foi enviada para o descritor "
+                   "%d...\n",
+                   sendBuffer, *client);
+          }
+          break;
+        case GAME_WIN:
+        case GAME_LOSE:
+          // Desconecta o peer mesmo antes do peer se desconectar,
+          // pois o jogo acabou
+          printf("O jogo contra o servidor do cliente %d acabou, "
+                 "desconectando...\n",
+                 *client);
+          getpeername(*client, (struct sockaddr *)&address,
+                      (socklen_t *)&addrlen);
+          printf("Hospedeiro desconectou , ip %s , porta %d \n",
+                 inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+          sprintf(sendBuffer, "%c 0 0 ", SERVER_FORCE_DISCONNECT + '0');
+          send(*client, sendBuffer, strlen(sendBuffer), 0);
+          break;
+        default:
+          break;
+        }
+      }
+
+      break;
+    default:
+      break;
+    }
+    break;
+  case PLAYER:
+    for (int j = 0; j < (MAX_CLIENTS / 2); j++) {
+      for (int k = 0; k < MAX_PER_GAME_SESSION; k++) {
+        // Se o cara que enviou a mensagem pertence a essa sessao
+        if (*(sessionList + j)->clientFd[k] == *client) {
+          // Copiar a mensagem para um buffer persistente de indice
+          // igual ao seu no array de clientes
+          strcpy((sessionList + j)->persistentBuffer[k], buffer);
+          printf("A mensagem (%s) foi recebida do descritor %d...\n",
+                 (sessionList + j)->persistentBuffer[k], *client);
+          // O custo de fazer as coisas sem ser async eh a
+          // complexidade quadratica Verifica se todos os clientes
+          // tem mensagens para enviar Assumir com otimismo que
+          // todas as mensagens estarao prontas para envio
+          (sessionList + j)->areClientsReady = 1;
+          for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
+            if ((sessionList + j)->persistentBuffer[l][0] == '\0') {
+              (sessionList + j)->areClientsReady = 0;
+              break;
+            }
+          }
+
+          // Se todas as mensagens estao prontas para envio
+          // " *client != 0" pois o cliente pode fechar a
+          // conexao quando bem entender
+          if ((sessionList + j)->areClientsReady) {
+            for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
+              strcpy(sendBuffer, (sessionList + j)->persistentBuffer[l]);
+              // Vai enviar para todos os clientes a nao ser ele
+              // mesmo
+              for (int m = 0; m < MAX_PER_GAME_SESSION; m++) {
+                if (l != m) {
+                  if (send(*(sessionList + j)->clientFd[m], sendBuffer,
+                           strlen(sendBuffer),
+                           0) != (long int)strlen(sendBuffer)) {
+                    fprintf(stderr, "Erro ao enviar a mensagem.\n");
+                  } else {
+                    printf("A mensagem (%s) foi enviada para o "
+                           "descritor "
+                           "%d...\n",
+                           sendBuffer, *(sessionList + j)->clientFd[m]);
+                  }
+                }
+              }
+              // Depois de enviadas, "zerar" o buffer persistente
+              // atual
+              strcpy((sessionList + j)->persistentBuffer[l], "\0");
+            }
+          } else {
+            // Passa a flag IDLE para que o jogador espere o outro
+            // fazer seu movimento
+            sprintf(sendBuffer, "%c ", IDLE + '0');
+            if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
+                (long int)strlen(sendBuffer)) {
+              fprintf(stderr, "Erro ao enviar a mensagem.\n");
+            } else {
+              printf("A mensagem (IDLE) foi enviada para o "
+                     "descritor "
+                     "%d...\n",
+                     *client);
+            }
+          }
+        }
+      }
+    }
+    break;
+  default:
+    break;
+  }
+}

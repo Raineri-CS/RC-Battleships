@@ -199,6 +199,10 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           close(clientSockfd);
           return 0;
           break;
+        case SERVER_FORCE_DISCONNECT:
+          printf("Voce foi desconectado do servidor!\n");
+          close(clientSockfd);
+          return 0;
         default:
           break;
         }

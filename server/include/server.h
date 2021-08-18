@@ -38,7 +38,15 @@ int endGameSession(gameSession *this, int *gameStatusArray,
 // -1 se nao
 int contains(int socketDescriptor, int *clientSockets);
 
-void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
-                    int *gameStatus, char *buffer, int *client, int index);
+// Seleciona o gamemode pelo server
+// O uso do int index nao pode ser abstraido infelizmente, pois no final da
+// funcao eu uso aritimetica de ponteiros pra settar o restante dos status dos
+// clietnes da gameSession
+void selectGameMode(gameSession *sessionArray, tabuleiro *serverField,
+                    int *gameStatusArray, char *buffer, int *clientArray, int index);
+
+void doGameIteration(gameSession *sessionArray, tabuleiro *serverField,
+                     int *gameStatus, char *buffer, int *client,
+                     unsigned int *lives);
 
 #endif

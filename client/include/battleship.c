@@ -26,6 +26,7 @@ void clearStdin(void) {
   }
 }
 
+// TODO modularizar esse gameLoop (futuramente)
 int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
              tabuleiro *tab) {
   int clientSockfd, tempX, tempY, lives, valRead;

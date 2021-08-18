@@ -4,13 +4,13 @@
 
 * Rules:
   1. Players take turns trying to hit each other structures.
+  1. Inputs are taken as a lowercase letter and a number, separated by a space, I.E (a 3)
+  1. Once all the structures are destroyed, the game ends, tracked by the "lives" variable
   1. Structures are as follows:
     * 5|SUBmarines|(length 2)|SUB
     * 3|TORpedos  |(length 3)|TOR
     * 2|TAnk Ships|(length 4)|TAS
     * 1|AIrPort   |(length 5)|AIP
-  1. Inputs are taken as a lowercase letter and a number, separated by a space, I.E (a 3)
-  1. Once all the structures are destroyed, the game ends, tracked by the "lives" variable
 
 >Clientside modularizing and abstraction needs work, but it will suffice as the delivered code.
 

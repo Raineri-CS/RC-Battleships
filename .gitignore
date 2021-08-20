@@ -9,3 +9,5 @@ server/prog
 server/server
 servidor
 cliente
+/logs/
+testinput.txt

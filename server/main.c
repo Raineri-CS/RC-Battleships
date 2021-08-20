@@ -12,13 +12,11 @@
 #include "include/battleship.h"
 #include "include/server.h"
 
-// TODO generalizar o servidor INTEIRO pra um .h
-
 int main(int argc, char const *argv[]) {
   int opt = 1;
 
   int masterSocket, addrlen, newSocket, clientSocket[MAX_CLIENTS], activity, i,
-      valRead, sd, clientNum, gameStatus[MAX_CLIENTS], tempX, tempY, PORT;
+      valRead, sd, clientNum, gameStatus[MAX_CLIENTS], PORT;
 
   unsigned int paramAmount;
 
@@ -29,7 +27,7 @@ int main(int argc, char const *argv[]) {
 
   struct sockaddr_in address;
 
-  char buffer[1025], sendBuffer[128]; // Buffer de dados
+  char buffer[1025]; // Buffer de dados
 
   // Conjunto de descritores de socket para a multiplexacao
   fd_set readfds;
@@ -147,7 +145,7 @@ int main(int argc, char const *argv[]) {
     // Se activity for menor que 0 ha algum erro, pois o select volta o numero
     // de descritores prontos
     if ((activity < 0) && (errno != EINTR)) {
-      printf("select error\n");
+      printf("Select falhou\n");
     }
 
     // Se algo mudou na socket mestre, eh uma conexao vindo
@@ -190,7 +188,12 @@ int main(int argc, char const *argv[]) {
         // vindo
         if ((valRead = read(sd, buffer, 1024)) == 0) {
           // Alguem desconectou, printa as informacoes da desconexao na tela
-          getpeername(sd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
+          if (getpeername(sd, (struct sockaddr *)&address,
+                          (socklen_t *)&addrlen) == -1) {
+            fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
+                    errno);
+            return -1;
+          }
           printf("Hospedeiro desconectou , ip %s , porta %d \n",
                  inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
@@ -205,11 +208,12 @@ int main(int argc, char const *argv[]) {
                 }
               }
             }
-            if (endGameSession(&session[paramAmount], gameStatus,
-                               clientSocket) != 0) {
+            if (endGameSession(&session[paramAmount], gameStatus, clientSocket,
+                               clientSocket[i]) != 0) {
               fprintf(stderr, "endGameSession falhou.\n");
             }
-            clientNum -= MAX_PER_GAME_SESSION;
+            clientNum--;
+            close(sd);
           } else {
             close(sd);
             // Decrementar a quantidade de clientes
@@ -223,9 +227,6 @@ int main(int argc, char const *argv[]) {
           // Como as mensagens que vem nao tem o caractere nulo pra terminar,
           // adicionar
           buffer[valRead] = '\0';
-          // TODO
-          // Se o status do jogo for 0 quer dizer que nao tem nenhum jogo sendo
-          // executado
           if (!gameStatus[i]) {
             // Vai definir o gamemode
             selectGameMode(session, &serverField[i], gameStatus, buffer,

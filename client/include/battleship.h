@@ -35,12 +35,10 @@
 #define GAME_START 2
 #define GAME_WIN 3
 #define GAME_LOSE 4
-#define GAME_MOVE 5
 #define GAME_HIT 6
 #define GAME_MISS 7
 #define GAME_OVER 8
-#define GAME_WAIT 9
-#define SERVER_FORCE_DISCONNECT 666
+#define SERVER_FORCE_DISCONNECT 9
 
 typedef struct pieceProto {
   unsigned char isOccupied;
@@ -50,7 +48,7 @@ typedef struct pieceProto {
 } piece;
 
 typedef struct tabuleiroProto {
-  piece field[15][15];
+  piece field[FIELD_SIZE][FIELD_SIZE];
 } tabuleiro;
 
 void init(tabuleiro *tab);

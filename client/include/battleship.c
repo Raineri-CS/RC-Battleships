@@ -304,6 +304,11 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
       // do primeiro TURNO
 
       switch (paramAmount) {
+      case 0:
+        printf("Voce ganhou o jogo!\n");
+        close(clientSockfd);
+        return 0;
+        break;
       case 1:
         switch (atoi(&recvBuffer[0])) {
         case IDLE:

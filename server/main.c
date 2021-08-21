@@ -238,6 +238,8 @@ int main(int argc, char const *argv[]) {
             // Decrementar a quantidade de clientes
             clientNum--;
             clientSocket[i] = 0;
+            // Reseta as vidas
+            lives[i] = 32;
           }
 
         }

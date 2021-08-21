@@ -27,7 +27,7 @@ int main(int argc, char const *argv[]) {
 
   struct sockaddr_in address;
 
-  char buffer[1025]; // Buffer de dados
+  char buffer[32]; // Buffer de dados
 
   // Conjunto de descritores de socket para a multiplexacao
   fd_set readfds;
@@ -49,6 +49,11 @@ int main(int argc, char const *argv[]) {
   }
 
   clientNum = 0;
+
+  // Ignora o broken pipe caso ele tente enviar mensagem pra um descritor
+  // fechado, o que pode acontecer no envio do sinal do GAME_WIN ou fechando o
+  // programa via ctrl+c
+  signal(SIGPIPE, SIG_IGN);
 
   // Seed do gerador de numeros aleatorios
   srand((time_t)NULL);
@@ -157,22 +162,32 @@ int main(int argc, char const *argv[]) {
         return -1;
       }
 
-      // Informacoes uteis
-      printf("Nova conexao , descritor da socket eh %d , ip eh : %s , port : "
-             "%d \n ",
-             newSocket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+      if (clientNum >= MAX_CLIENTS) {
+        printf("Numero de conexoes extrapolou o limite de MAX_CLIENTS, "
+               "fechando a conexao do descritor %d\n",
+               newSocket);
+        sprintf(buffer, "%c ", SERVER_FORCE_DISCONNECT + '0');
+        send(newSocket, buffer, strlen(buffer), 0);
+        shutdown(newSocket, SHUT_RDWR);
+        close(newSocket);
+      } else {
+        // Informacoes uteis
+        printf("Nova conexao , descritor da socket eh %d , ip eh : %s , port : "
+               "%d \n ",
+               newSocket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
-      printf("%d cliente(s)\n", ++clientNum);
+        printf("%d cliente(s)\n", ++clientNum);
 
-      // Adiciona a socket no vetor de sockets
-      for (i = 0; i < MAX_CLIENTS; i++) {
-        // Se a posicao estiver vazia, adicionar
-        if (clientSocket[i] == 0) {
-          clientSocket[i] = newSocket;
-          printf("Adicionando a socket em %d\n", i);
-          // Break porque nao quero adicionar mais de uma por loop, ja que fazer
-          // singlethread eh mais simples
-          break;
+        // Adiciona a socket no vetor de sockets
+        for (i = 0; i < MAX_CLIENTS; i++) {
+          // Se a posicao estiver vazia, adicionar
+          if (clientSocket[i] == 0) {
+            clientSocket[i] = newSocket;
+            printf("Adicionando a socket em %d\n", i);
+            // Break porque nao quero adicionar mais de uma por loop, ja que
+            // fazer singlethread eh mais simples
+            break;
+          }
         }
       }
     }
@@ -186,7 +201,7 @@ int main(int argc, char const *argv[]) {
       if (FD_ISSET(sd, &readfds)) {
         // Se a operacao que esta vindo eh de fechamento e leitura da mensagem
         // vindo
-        if ((valRead = read(sd, buffer, 1024)) == 0) {
+        if ((valRead = read(sd, buffer, 32)) == 0) {
           // Alguem desconectou, printa as informacoes da desconexao na tela
           if (getpeername(sd, (struct sockaddr *)&address,
                           (socklen_t *)&addrlen) == -1) {
@@ -213,8 +228,12 @@ int main(int argc, char const *argv[]) {
               fprintf(stderr, "endGameSession falhou.\n");
             }
             clientNum--;
+            // De acordo com o MSDN eh boa praticar chamar o shutdown antes do
+            // close porque ele garante a transmissao de tudo antes
+            shutdown(sd, SHUT_RDWR);
             close(sd);
           } else {
+            shutdown(sd, SHUT_RDWR);
             close(sd);
             // Decrementar a quantidade de clientes
             clientNum--;

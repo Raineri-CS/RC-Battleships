@@ -19,9 +19,11 @@ int endGameSession(gameSession *this, int *status, int *clients,
       if (closedSocket != *this->clientFd[index]) {
         if (getpeername(clients[found], (struct sockaddr *)&address,
                         (socklen_t *)&addrlen) == -1) {
+          if (ENOTCONN) {
+            fprintf(stderr, "O peer nao esta conectado \n");
+          }
           fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
                   errno);
-          return -1;
         }
         printf(
             "Cliente encontrado em uma gameSession fechando, desconectando %s "
@@ -98,7 +100,14 @@ void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
             sprintf(sendBuffer, "%c ", IDLE + '0');
             if (send(*(clientArray + index), sendBuffer, strlen(sendBuffer),
                      0) != (long int)strlen(sendBuffer)) {
-              fprintf(stderr, "Erro ao enviar a mensagem em selectGameMode.\n");
+              if (errno == EPIPE) {
+                fprintf(stderr,
+                        "Broken pipe no envio em selectGameMode, "
+                        "desconexao iminente, ignorando a mensagem...\n");
+              } else {
+                fprintf(stderr,
+                        "Erro ao enviar a mensagem em selectGameMode.\n");
+              }
             } else {
               printf("A mensagem (IDLE) foi enviada para o descritor "
                      "%d...\n",
@@ -164,11 +173,6 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
   tempX = 0;
   tempY = 0;
   addrlen = sizeof(address);
-
-  // Ignora o broken pipe caso ele tente enviar mensagem pra um descritor
-  // fechado, o que pode acontecer no envio do sinal do GAME_WIN ou fechando o
-  // programa via ctrl+c
-  signal(SIGPIPE, SIG_IGN);
 
   switch (*gameStatus) {
   case COM:
@@ -245,6 +249,9 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
                  *client);
           if (getpeername(*client, (struct sockaddr *)&address,
                           (socklen_t *)&addrlen) == -1) {
+            if (ENOTCONN) {
+              fprintf(stderr, "O peer nao esta conectado \n");
+            }
             fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
                     errno);
           }
@@ -306,6 +313,9 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
                  *client);
           if (getpeername(*client, (struct sockaddr *)&address,
                           (socklen_t *)&addrlen) == -1) {
+            if (ENOTCONN) {
+              fprintf(stderr, "O peer nao esta conectado \n");
+            }
             fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
                     errno);
           }
@@ -377,7 +387,7 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
               }
               // Depois de enviadas, "zerar" o buffer persistente
               // atual
-              memcpy((sessionList + j)->persistentBuffer[l], "\0", 1);
+              memset((sessionList + j)->persistentBuffer[l], '\0', 128);
             }
           } else {
             // Passa a flag IDLE para que o jogador espere o outro

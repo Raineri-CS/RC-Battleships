@@ -32,13 +32,12 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   int clientSockfd, tempX, tempY, lives, valRead;
   struct sockaddr_in serverAddr;
   struct hostent *host;
-  char recvBuffer[256], sendBuffer[256];
+  char recvBuffer[32], sendBuffer[32];
   unsigned char didChoose, playerMove1, showMap;
   unsigned int playerMove2, paramAmount;
 
   /* Inicializacoes */
   clientSockfd = 0;
-  recvBuffer[0] = '\0';
   tempX = 0;
   tempY = 0;
   didChoose = 0;
@@ -48,6 +47,9 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
   playerMove1 = 0;
   playerMove2 = 0;
   host = gethostbyname(domain);
+
+  memset(recvBuffer, '\0', 32);
+  memset(sendBuffer, '\0', 32);
 
   /* Protocolo TCP */
   serverAddr.sin_family = AF_INET;
@@ -100,12 +102,18 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
     tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
     sprintf(sendBuffer, "%c %d %d ", GAME_START + '0', (playerMove1 - 97),
             playerMove2 - 1);
-    send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+    if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+        (long int)strlen(sendBuffer)) {
+      fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+      return 0;
+    }
 
     for (;;) {
       paramAmount = 0;
-      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
-        fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
+      // Reset do buffer DEBUG
+      memset(recvBuffer, '\0', 32);
+      if ((valRead = recv(clientSockfd, recvBuffer, 32, 0)) < 0) {
+        fprintf(stderr, "Erro em receber informacoes do servidor\n");
         return -1;
       }
       recvBuffer[valRead] = '\0';
@@ -123,7 +131,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         case IDLE:
           printf("Esperando adversario...\n");
           break;
-        case GAME_WAIT:
         case GAME_MISS:
         case GAME_HIT:
           if (atoi(&recvBuffer[0]) == GAME_HIT) {
@@ -131,6 +138,8 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           } else {
             printf("Voce errou o adversario!\n");
           }
+          // Pro GCC saber que esse comportamento eh intencional
+          // fall through
         case GAME_START:
           sscanf(recvBuffer, "%c %d %d", &recvBuffer[0], &tempX, &tempY);
 
@@ -141,7 +150,12 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
             if (lives <= 0) {
               // Setta aqui o que vai ser ENVIADO pro cliente
               sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-              send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+              if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+                  (long int)strlen(sendBuffer)) {
+                fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+                return 0;
+              }
+
               recvBuffer[0] = GAME_OVER + '0';
             } else {
               printf("O adversario te acertou!\n");
@@ -151,14 +165,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
             sprintf(sendBuffer, "%c ", GAME_MISS + '0');
             printf("O adversario errou!\n");
           }
-          // Se a quantidade de vidas dessa estrutura...
-          if (lives <= 0) {
-            // Setta aqui o que vai ser ENVIADO pro cliente
-            sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-            send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
-            recvBuffer[0] = GAME_OVER + '0';
-          }
-          // Se as vidas nao acabaram, continua o jogo...
           do {
             do {
               // Mostra o tabuleiro local
@@ -186,7 +192,12 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           // Envia o tiro
           sprintf(sendBuffer, "%c %d %d ", sendBuffer[0], (playerMove1 - 97),
                   playerMove2 - 1);
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+          if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+            return 0;
+          }
+
           break;
 
         case GAME_WIN:
@@ -197,11 +208,17 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         case GAME_OVER:
         case GAME_LOSE:
           printf("Que pena! Voce perdeu o jogo.\n");
+          shutdown(clientSockfd, SHUT_RDWR);
           close(clientSockfd);
           return 0;
           break;
         case SERVER_FORCE_DISCONNECT:
-          printf("Voce foi desconectado do servidor!\n");
+          // Como caso default, o cliente ganhou com a desconexao do outro, ou
+          // porque a sessao esta sendo fechada, o que quer dizer que o outro
+          // cliente perdeu
+          printf("Parabens, voce ganhou o jogo!\n");
+          printf("Voce foi desconectado do servidor.\n");
+          shutdown(clientSockfd, SHUT_RDWR);
           close(clientSockfd);
           return 0;
         default:
@@ -217,7 +234,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
     sendBuffer[0] = PLAYER + '0';
     send(clientSockfd, &sendBuffer[0], 1, 0);
     while (!didChoose) {
-      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
+      if ((valRead = recv(clientSockfd, recvBuffer, 32, 0)) < 0) {
         fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
         return -1;
       }
@@ -261,11 +278,17 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
     // Representa no tabuleiro local onde foi tentado o tiro
     tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
     sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
-    send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+    if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+        (long int)strlen(sendBuffer)) {
+      fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+      return 0;
+    }
 
     for (;;) {
+      memset(recvBuffer, '\0', 32);
+      memset(sendBuffer, '\0', 32);
       paramAmount = 0;
-      if ((valRead = recv(clientSockfd, recvBuffer, 128, 0)) < 0) {
+      if ((valRead = recv(clientSockfd, recvBuffer, 32, 0)) < 0) {
         fprintf(stderr, "Erro em receber inforrmacoes do servidor\n");
         return -1;
       }
@@ -277,7 +300,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           paramAmount++;
         }
       }
-      // FIXME broken pipe porque eu termino o jogo antes do servidor servir de
       // relay pros comandos de ifm de partida Quer dizer que ele leu um ataque
       // do primeiro TURNO
 
@@ -288,10 +310,14 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           printf("Esperando adversario...\n");
           break;
         case SERVER_FORCE_DISCONNECT:
+          // Como caso default, o cliente ganhou com a desconexao do outro, ou
+          // porque a sessao esta sendo fechada, o que quer dizer que o outro
+          // cliente perdeu
+          printf("Parabens, voce ganhou o jogo!\n");
           printf("Voce foi desconectado do servidor.\n");
+          shutdown(clientSockfd, SHUT_RDWR);
           close(clientSockfd);
           return 0;
-        case GAME_WAIT:
         case GAME_START:
           break;
         case GAME_HIT:
@@ -301,7 +327,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
             do {
               // Mostra o tabuleiro local
               if (showMap) {
-                clear();
                 printField(tab);
               }
               // Le o movimento do jogador
@@ -324,7 +349,12 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           tab->field[(int)(playerMove1 - 97)][(playerMove2 - 1)].clientShot = 1;
           // Envia o tiro
           sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+          if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+            return 0;
+          }
+
           break;
         case GAME_MISS:
           printf("Voce errou o adversario!\n");
@@ -333,7 +363,6 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
             do {
               // Mostra o tabuleiro local
               if (showMap) {
-                clear();
                 printField(tab);
               }
               // Le o movimento do jogador
@@ -356,7 +385,12 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
           tab->field[(playerMove1 - 97)][playerMove2 - 1].clientShot = 1;
           // Envia o tiro
           sprintf(sendBuffer, "%d %d ", (playerMove1 - 97), playerMove2 - 1);
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+          if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+            return 0;
+          }
+
           break;
         case GAME_WIN:
           printf("Parabens, voce ganhou o jogo!\n");
@@ -366,6 +400,7 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
         case GAME_OVER:
         case GAME_LOSE:
           printf("Que pena! Voce perdeu o jogo.\n");
+          shutdown(clientSockfd, SHUT_RDWR);
           close(clientSockfd);
           return 0;
           break;
@@ -378,24 +413,38 @@ int gameLoop(char *domain, unsigned short int port, unsigned char gameMode,
 
         if (fireProjectile(tempX, tempY, tab) == HIT) {
           lives--;
-          sprintf(sendBuffer, "%c ", GAME_HIT + '0');
           // Se a quantidade de vidas dessa estrutura...
           if (lives <= 0) {
             // Setta aqui o que vai ser ENVIADO pro cliente
             sprintf(sendBuffer, "%c ", GAME_WIN + '0');
-            send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
-            recvBuffer[0] = GAME_OVER + '0';
+            if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+                (long int)strlen(sendBuffer)) {
+              fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+              return 0;
+            }
+
             printf("Que pena, voce perdeu!\n");
+            shutdown(clientSockfd, SHUT_RDWR);
             close(clientSockfd);
             return 0;
           } else {
-            send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+            sprintf(sendBuffer, "%c ", GAME_HIT + '0');
+            if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+                (long int)strlen(sendBuffer)) {
+              fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+              return 0;
+            }
             printf("O adversario te acertou!\n");
           }
           // Se as vidas nao acabaram, continua o jogo...
         } else {
           sprintf(sendBuffer, "%c ", GAME_MISS + '0');
-          send(clientSockfd, sendBuffer, strlen(sendBuffer), 0);
+          if (send(clientSockfd, sendBuffer, strlen(sendBuffer), 0) !=
+              (long int)strlen(sendBuffer)) {
+            fprintf(stderr, "Erro ao enviar informacoes ao servidor.\n");
+            return 0;
+          }
+
           printf("O adversario errou!\n");
         }
 

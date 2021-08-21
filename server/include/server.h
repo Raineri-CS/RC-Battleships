@@ -7,6 +7,8 @@
 #include <string.h> // strlen
 #include <sys/socket.h>
 #include <unistd.h> // close
+#include <signal.h> // Checagem de erros com signal() pra ignorar broken pipe
+#include <errno.h>
 
 #include "battleship.h" // Constantes
 
@@ -32,7 +34,7 @@ typedef struct gameSessionProto {
 // Tenta fechar uma gameSession e todas as suas sockets respectivas, 0 pra
 // sucesso, -1 pra erros
 int endGameSession(gameSession *this, int *gameStatusArray,
-                   int *clientSocketArray);
+                   int *clientSocketArray, int closedSocket);
 
 // Procura o socketDescriptor dentro de clientSockets, volta o indice se achou,
 // -1 se nao

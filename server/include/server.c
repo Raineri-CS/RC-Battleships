@@ -1,33 +1,50 @@
 #include "server.h"
 
-int endGameSession(gameSession *this, int *status, int *clients) {
+int endGameSession(gameSession *this, int *status, int *clients,
+                   int closedSocket) {
   int found, addrlen;
   char sendBuffer[32];
   struct sockaddr_in address;
 
   found = 0;
-  addrlen = 0;
+  addrlen = sizeof(address);
 
   // Fecha os descritores de todas as sockets
   for (int index = 0; index < MAX_PER_GAME_SESSION; index++) {
+    // Ve o erro
+
     if ((found = contains(*this->clientFd[index], clients)) != -1) {
-      getpeername(clients[found], (struct sockaddr *)&address,
-                  (socklen_t *)&addrlen);
-      printf("Cliente encontrado em uma gameSession fechando, desconectando %s "
-             "de porta %d...\n",
-             inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-      sprintf(sendBuffer, "%c ", SERVER_FORCE_DISCONNECT + '0');
-      if (send(clients[found], sendBuffer, strlen(sendBuffer), 0) !=
-          (long int)strlen(sendBuffer)) {
-        return -1;
-      } else {
+      // Operacoes diferentes para o descritor que ja fechou
+      // FIXME a socket "fechada" entra aqui de qualquer jeito por algum motivo
+      if (closedSocket != *this->clientFd[index]) {
+        if (getpeername(clients[found], (struct sockaddr *)&address,
+                        (socklen_t *)&addrlen) == -1) {
+          if (ENOTCONN) {
+            fprintf(stderr, "O peer nao esta conectado \n");
+          }
+          fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
+                  errno);
+        }
         printf(
-            "Mensagem (SERVER_FORCE_DISCONNECT) enviada, fechando socket...\n");
+            "Cliente encontrado em uma gameSession fechando, desconectando %s "
+            "de porta %d...\n",
+            inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        sprintf(sendBuffer, "%c ", SERVER_FORCE_DISCONNECT + '0');
+        if (send(clients[found], sendBuffer, strlen(sendBuffer), 0) !=
+            (long int)strlen(sendBuffer)) {
+          return -1;
+        } else {
+          printf("Mensagem (SERVER_FORCE_DISCONNECT) enviada...\n");
+          status[found] = 0;
+          this->clientFd[index] = 0;
+          // TODO verificar se essa eh a melhor opcao
+          // close(clients[found]);
+          // clients[found] = 0;
+        }
+      } else {
+        clients[found] = 0;
         status[found] = 0;
         this->clientFd[index] = 0;
-        // TODO verificar se essa eh a melhor opcao
-        // close(clients[found]);
-        clients[found] = 0;
       }
     } else {
       return -1;
@@ -83,7 +100,14 @@ void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
             sprintf(sendBuffer, "%c ", IDLE + '0');
             if (send(*(clientArray + index), sendBuffer, strlen(sendBuffer),
                      0) != (long int)strlen(sendBuffer)) {
-              fprintf(stderr, "Erro ao enviar a mensagem em selectGameMode.\n");
+              if (errno == EPIPE) {
+                fprintf(stderr,
+                        "Broken pipe no envio em selectGameMode, "
+                        "desconexao iminente, ignorando a mensagem...\n");
+              } else {
+                fprintf(stderr,
+                        "Erro ao enviar a mensagem em selectGameMode.\n");
+              }
             } else {
               printf("A mensagem (IDLE) foi enviada para o descritor "
                      "%d...\n",
@@ -137,7 +161,6 @@ void selectGameMode(gameSession *sessionList, tabuleiro *serverField,
   }
 }
 
-// TODO test this shit
 void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
                      int *gameStatus, char *buffer, int *client,
                      unsigned int *lives) {
@@ -149,7 +172,7 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
   valRead = strlen(buffer);
   tempX = 0;
   tempY = 0;
-  addrlen = 0;
+  addrlen = sizeof(address);
 
   switch (*gameStatus) {
   case COM:
@@ -166,7 +189,7 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
       if (fireProjectile(tempX, tempY, serverField) == HIT) {
         *lives -= 1;
         // Se a quantidade de vidas dessa estrutura...
-        if (lives <= 0) {
+        if (*lives <= 0) {
           // Setta aqui o que vai ser ENVIADO pro cliente
           sprintf(sendBuffer, "%c %d %d ", GAME_WIN + '0', 0, 0);
           if (send(*client, sendBuffer, strlen(sendBuffer), 0) !=
@@ -224,8 +247,14 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
           printf("O jogo contra o servidor do cliente %d acabou, "
                  "desconectando...\n",
                  *client);
-          getpeername(*client, (struct sockaddr *)&address,
-                      (socklen_t *)&addrlen);
+          if (getpeername(*client, (struct sockaddr *)&address,
+                          (socklen_t *)&addrlen) == -1) {
+            if (ENOTCONN) {
+              fprintf(stderr, "O peer nao esta conectado \n");
+            }
+            fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
+                    errno);
+          }
           printf("Hospedeiro desconectou , ip %s , porta %d \n",
                  inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
@@ -282,8 +311,14 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
           printf("O jogo contra o servidor do cliente %d acabou, "
                  "desconectando...\n",
                  *client);
-          getpeername(*client, (struct sockaddr *)&address,
-                      (socklen_t *)&addrlen);
+          if (getpeername(*client, (struct sockaddr *)&address,
+                          (socklen_t *)&addrlen) == -1) {
+            if (ENOTCONN) {
+              fprintf(stderr, "O peer nao esta conectado \n");
+            }
+            fprintf(stderr, "Erro ao resolver nome do peer, com o erro %d.\n",
+                    errno);
+          }
           printf("Hospedeiro desconectou , ip %s , porta %d \n",
                  inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
@@ -323,8 +358,6 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
           }
 
           // Se todas as mensagens estao prontas para envio
-          // " *client != 0" pois o cliente pode fechar a
-          // conexao quando bem entender
           if ((sessionList + j)->areClientsReady) {
             for (int l = 0; l < MAX_PER_GAME_SESSION; l++) {
               strcpy(sendBuffer, (sessionList + j)->persistentBuffer[l]);
@@ -335,7 +368,15 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
                   if (send(*(sessionList + j)->clientFd[m], sendBuffer,
                            strlen(sendBuffer),
                            0) != (long int)strlen(sendBuffer)) {
-                    fprintf(stderr, "Erro ao enviar a mensagem.\n");
+                    // Se o erro for broken pipe...
+                    if (errno == EPIPE) {
+                      fprintf(stderr,
+                              "Broken pipe no envio em doGameIteration, "
+                              "desconexao iminente, ignorando a mensagem...\n");
+                    } else {
+                      // Erro generico
+                      fprintf(stderr, "Erro ao enviar a mensagem.\n");
+                    }
                   } else {
                     printf("A mensagem (%s) foi enviada para o "
                            "descritor "
@@ -346,7 +387,7 @@ void doGameIteration(gameSession *sessionList, tabuleiro *serverField,
               }
               // Depois de enviadas, "zerar" o buffer persistente
               // atual
-              strcpy((sessionList + j)->persistentBuffer[l], "\0");
+              memset((sessionList + j)->persistentBuffer[l], '\0', 128);
             }
           } else {
             // Passa a flag IDLE para que o jogador espere o outro

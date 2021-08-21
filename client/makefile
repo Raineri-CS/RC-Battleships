@@ -13,10 +13,10 @@ build:
 	@mkdir -p build
 
 build/main.o: build
-	gcc -c main.c -o build/main.o
+	gcc -c -Wall -Wextra -pedantic main.c -o build/main.o
 
 build/%.o: include/%.c | build
-	gcc -c $< -o $@
+	gcc -c -Wall -Wextra -pedantic $< -o $@
 
 clean:
 	-rm -f $(O_FILES)
